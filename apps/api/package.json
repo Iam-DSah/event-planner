@@ -1,0 +1,23 @@
+{
+  "name": "@event-planner/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "knex": "tsx --env-file-if-exists=../../.env ../../node_modules/knex/bin/cli.js --knexfile ./src/db/knexfile.ts",
+    "migrate:make": "npm run knex -- migrate:make -x ts",
+    "migrate:latest": "npm run knex -- migrate:latest",
+    "migrate:rollback": "npm run knex -- migrate:rollback",
+    "migrate:status": "npm run knex -- migrate:status",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "knex": "^3.1.0",
+    "mysql2": "^3.12.0",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "typescript": "^5.7.3"
+  }
+}

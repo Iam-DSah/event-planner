@@ -9,5 +9,14 @@
   "workspaces": [
     "packages/*",
     "apps/*"
-  ]
+  ],
+  "scripts": {
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d --wait",
+    "migrate:make": "npm run migrate:make -w @event-planner/api --",
+    "migrate:latest": "npm run migrate:latest -w @event-planner/api",
+    "migrate:rollback": "npm run migrate:rollback -w @event-planner/api",
+    "migrate:status": "npm run migrate:status -w @event-planner/api"
+  }
 }

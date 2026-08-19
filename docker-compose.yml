@@ -1,0 +1,41 @@
+# Local development services only. Nothing here runs in production.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: eventplanner-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-event_planner}
+      MYSQL_USER: ${DB_USER:-eventplanner}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-eventplanner_password}
+    ports:
+      # host:container — lets tools on your machine reach it at 127.0.0.1:3306
+      - '${DB_PORT:-3306}:3306'
+    volumes:
+      # Named volume: the database survives `docker compose down`.
+      # `docker compose down -v` is what actually destroys it.
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # Deliberately over TCP (-h 127.0.0.1) as the APPLICATION user, against
+      # the APPLICATION database — not `mysqladmin ping` on the socket.
+      #
+      # On first boot the MySQL entrypoint starts a temporary server with
+      # networking disabled to run its init scripts. That temporary server
+      # answers a socket ping perfectly happily, so a socket-based healthcheck
+      # reports "healthy" while the database does not exist yet, and your first
+      # migration fails. Connecting over TCP as the app user proves three
+      # things at once: the real server is up, the user exists, the schema
+      # exists.
+      test:
+        [
+          'CMD-SHELL',
+          'mysql -h 127.0.0.1 -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" -e "SELECT 1" "$$MYSQL_DATABASE"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+volumes:
+  mysql_data:

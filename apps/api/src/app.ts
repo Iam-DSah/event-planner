@@ -1,16 +1,26 @@
-import express from 'express';
-
+import express from "express";
+import db from "./db/knex.js";
 
 import { notFoundHandler } from "./middleware/notFoundHandler.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: "100kb" }));
 
+app.get("/api/v1/health", async (_req, res) => {
+  try {
+    await db.raw("SELECT 1").timeout(2000);
+    return res.status(200).json({
+      status: "ok",
+    });
+  } catch (error) {
+    console.error("Health check failed:", error);
 
-app.get('/api/v1/health', (_req, res) => {
-  res.json({ status: 'ok' });
+    return res.status(503).json({
+      status: "unavailable",
+    });
+  }
 });
 
 // 404 MUST come after all routes.

@@ -1,34 +1,20 @@
-# ─── Dependencies ────────────────────────────────────────────────────────────
-# Never committed: hundreds of MB, machine-specific, and fully reconstructible
-# from package.json + package-lock.json by running `npm install`.
 node_modules/
 
-# ─── Build output ────────────────────────────────────────────────────────────
-# Generated from source. Committing it means reviewing diffs of compiled code
-# and resolving pointless merge conflicts.
 dist/
 build/
 *.tsbuildinfo
 
-# ─── Secrets ─────────────────────────────────────────────────────────────────
-# The important one. Database passwords and the JWT signing key live in .env.
-# A secret committed even once lives in git history FOREVER — deleting the file
-# later does not remove it from earlier commits.
-# .env.example IS committed: same keys, placeholder values, so anyone cloning
-# the repo knows what configuration is required.
+
 .env
 .env.*
 !.env.example
 
-# ─── Logs ────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
 
-# ─── Test and tool output ────────────────────────────────────────────────────
 coverage/
 .vite/
 
-# ─── Editor and OS noise ─────────────────────────────────────────────────────
 .DS_Store
 .idea/
 .vscode/

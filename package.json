@@ -19,6 +19,15 @@
     "migrate:latest": "npm run migrate:latest -w @event-planner/api",
     "migrate:rollback": "npm run migrate:rollback -w @event-planner/api",
     "migrate:status": "npm run migrate:status -w @event-planner/api",
-    "typecheck": "npm run typecheck -w @event-planner/api"
+    "typecheck": "npm run typecheck -w @event-planner/api",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "prettier": "^3.9.6"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7"
   }
 }

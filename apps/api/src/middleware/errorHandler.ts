@@ -1,8 +1,6 @@
 import type { ErrorRequestHandler } from "express";
-import {
-  ForbiddenError,
-  NotFoundError,
-} from "../errors/domainErrors.js";
+import { ForbiddenError, NotFoundError, UnauthorizedError } from "../errors/domainErrors.js";
+
 
 type ErrorMapping = {
   matches: (error: unknown) => boolean;
@@ -86,7 +84,19 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     });
   }
 
-  // 3. Everything else is an unexpected server error.
+  // 3. Authentication errors.
+  if (err instanceof UnauthorizedError) {
+    console.warn(`Authentication failure: ${err.message}`);
+
+    return res.status(401).json({
+      error: {
+        code: err.code,
+        message: err.message,
+      },
+    });
+  }
+
+  // 4. Everything else is an unexpected server error.
   console.error(err);
 
   return res.status(500).json({

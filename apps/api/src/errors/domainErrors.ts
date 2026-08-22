@@ -16,3 +16,15 @@ export class ForbiddenError extends Error {
   }
 }
 
+export class UnauthorizedError extends Error {
+  readonly code: "UNAUTHORIZED" | "TOKEN_EXPIRED";
+
+  constructor(
+    code: "UNAUTHORIZED" | "TOKEN_EXPIRED" = "UNAUTHORIZED",
+    message = "Invalid authentication credentials",
+  ) {
+    super(message);
+    this.name = "UnauthorizedError";
+    this.code = code;
+  }
+}

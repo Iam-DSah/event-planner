@@ -1,0 +1,21 @@
+{
+  "name": "@event-planner/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+
+  "//exports": "Points at TypeScript SOURCE, not a build output. Both consumers already transpile TypeScript — the API runs under tsx, the web app under Vite — so a build step here would buy nothing and add a stale-artifact failure mode (edit a schema, forget to rebuild, debug a validation rule that is not the one on disk). The ceiling: if the API ever gains a real compiled production build, this package needs tsc output and this field has to change.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

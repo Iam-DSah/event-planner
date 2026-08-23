@@ -1,6 +1,11 @@
 import type { ErrorRequestHandler } from "express";
-import { ForbiddenError, NotFoundError, UnauthorizedError } from "../errors/domainErrors.js";
-
+import { ZodError } from "zod";
+import {
+  EmailAlreadyRegisteredError,
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+} from "../errors/domainErrors.js";
 
 type ErrorMapping = {
   matches: (error: unknown) => boolean;
@@ -19,6 +24,11 @@ const errorMappings: ErrorMapping[] = [
     matches: (error) => error instanceof ForbiddenError,
     status: 403,
     code: "FORBIDDEN",
+  },
+  {
+    matches: (error) => error instanceof EmailAlreadyRegisteredError,
+    status: 409,
+    code: "EMAIL_ALREADY_REGISTERED",
   },
 ];
 
@@ -96,7 +106,33 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     });
   }
 
-  // 4. Everything else is an unexpected server error.
+  // 4. Validation errors.
+  if (err instanceof ZodError) {
+
+    console.warn("Request validation failed:", err.issues);
+
+    const fields: Record<string, string[]> = {};
+
+    for (const issue of err.issues) {
+      const field = issue.path.join(".");
+
+      if (!fields[field]) {
+        fields[field] = [];
+      }
+
+      fields[field].push(issue.message);
+    }
+
+    return res.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Request validation failed",
+        fields,
+      },
+    });
+  }
+
+  // 5. Everything else is an unexpected server error.
   console.error(err);
 
   return res.status(500).json({

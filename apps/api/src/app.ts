@@ -3,11 +3,14 @@ import db from "./db/knex.js";
 import cookieParser from "cookie-parser";
 import { notFoundHandler } from "./middleware/notFoundHandler.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import authRouter from "./routes/auth.js";
+
 
 const app = express();
 
 app.use(cookieParser());
 app.use(express.json({ limit: "100kb" }));
+app.use("/api/v1/auth", authRouter);
 
 app.get("/api/v1/health", async (_req, res) => {
   try {

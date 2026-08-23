@@ -1,4 +1,3 @@
-
 import db from "../db/knex.js";
 import { EmailAlreadyRegisteredError } from "../errors/domainErrors.js";
 
@@ -14,9 +13,11 @@ export interface User {
   email: string;
 }
 
-export async function createUser(
-  input: CreateUserInput,
-): Promise<User> {
+export interface LoginUser extends User {
+  passwordHash: string;
+}
+
+export async function createUser(input: CreateUserInput): Promise<User> {
   try {
     const [id] = await db("users").insert({
       name: input.name,
@@ -50,4 +51,24 @@ export async function createUser(
 
     throw error;
   }
+}
+
+export async function findUserForLoginByEmail(
+  email: string,
+): Promise<LoginUser | null> {
+  const user = await db("users")
+    .select("id", "name", "email", "password_hash")
+    .where("email", email)
+    .first();
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: String(user.id),
+    name: user.name,
+    email: user.email,
+    passwordHash: user.password_hash,
+  };
 }

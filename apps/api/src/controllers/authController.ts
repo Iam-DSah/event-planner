@@ -1,9 +1,16 @@
 import type { NextFunction, Request, Response } from "express";
 
-import { registerSchema } from "@event-planner/shared";
+import { loginSchema, registerSchema } from "@event-planner/shared";
 
-import { registerUser } from "../services/authService.js";
+import { authenticateUser, registerUser } from "../services/authService.js";
+
 import { signToken } from "../lib/jwt.js";
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax" as const,
+};
 
 export async function register(
   req: Request,
@@ -18,9 +25,7 @@ export async function register(
     const token = signToken(String(user.id));
 
     res.cookie("access_token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
+      ...cookieOptions,
       maxAge: 15 * 60 * 1000,
     });
 
@@ -30,4 +35,35 @@ export async function register(
   } catch (error) {
     next(error);
   }
+}
+
+export async function login(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const input = loginSchema.parse(req.body);
+
+    const user = await authenticateUser(input);
+
+    const token = signToken(user.id);
+
+    res.cookie("access_token", token, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      user,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function logout(_req: Request, res: Response): void {
+  res.clearCookie("access_token", cookieOptions);
+
+  res.status(204).send();
 }

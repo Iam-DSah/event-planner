@@ -11,7 +11,7 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-eventplanner_password}
     ports:
       # host:container — lets tools on your machine reach it at 127.0.0.1:3306
-      - '${DB_PORT:-3306}:3306'
+      - "${DB_PORT:-3306}:3306"
     volumes:
       # Named volume: the database survives `docker compose down`.
       # `docker compose down -v` is what actually destroys it.
@@ -29,7 +29,7 @@ services:
       # exists.
       test:
         [
-          'CMD-SHELL',
+          "CMD-SHELL",
           'mysql -h 127.0.0.1 -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" -e "SELECT 1" "$$MYSQL_DATABASE"',
         ]
       interval: 5s

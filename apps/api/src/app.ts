@@ -5,7 +5,6 @@ import { notFoundHandler } from "./middleware/notFoundHandler.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import authRouter from "./routes/auth.js";
 
-
 const app = express();
 
 app.use(cookieParser());

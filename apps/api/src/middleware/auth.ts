@@ -31,10 +31,7 @@ export function requireAuth(
 
     if (error instanceof jwt.TokenExpiredError) {
       next(
-        new UnauthorizedError(
-          "TOKEN_EXPIRED",
-          "Authentication token expired",
-        ),
+        new UnauthorizedError("TOKEN_EXPIRED", "Authentication token expired"),
       );
       return;
     }

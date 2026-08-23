@@ -96,8 +96,6 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
 
   // 3. Authentication errors.
   if (err instanceof UnauthorizedError) {
-    console.warn(`Authentication failure: ${err.message}`);
-
     return res.status(401).json({
       error: {
         code: err.code,
@@ -108,13 +106,12 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
 
   // 4. Validation errors.
   if (err instanceof ZodError) {
-
     console.warn("Request validation failed:", err.issues);
 
     const fields: Record<string, string[]> = {};
 
     for (const issue of err.issues) {
-      const field = issue.path.join(".");
+      const field = issue.path.length > 0 ? issue.path.join(".") : "_form";
 
       if (!fields[field]) {
         fields[field] = [];

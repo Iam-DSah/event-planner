@@ -7,15 +7,11 @@ const JWT_ALGORITHM = "HS256" as const;
 const JWT_EXPIRES_IN = "15m";
 
 export function signToken(userId: string): string {
-  return jwt.sign(
-    {},
-    JWT_SECRET,
-    {
-      algorithm: JWT_ALGORITHM,
-      subject: userId,
-      expiresIn: JWT_EXPIRES_IN,
-    },
-  );
+  return jwt.sign({}, JWT_SECRET, {
+    algorithm: JWT_ALGORITHM,
+    subject: userId,
+    expiresIn: JWT_EXPIRES_IN,
+  });
 }
 
 export function verifyToken(token: string): { sub: string } {

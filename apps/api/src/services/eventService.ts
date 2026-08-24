@@ -1,43 +1,65 @@
 import type { CreateEventInput, UpdateEventInput } from "@event-planner/shared";
+import type { Knex } from "knex";
+
+import {
+  findOrCreateTags,
+  replaceEventTags,
+} from "../repositories/tagRepository.js";
+
 import {
   insertEvent,
   findEventById,
   updateEvent as updateEventRepository,
   deleteEvent as deleteEventRepository,
 } from "../repositories/eventRepository.js";
+
 import {
   NotFoundError,
   ForbiddenError,
   EventValidationError,
 } from "../errors/domainErrors.js";
 
+import db from "../db/knex.js";
+
 export async function createEvent(input: CreateEventInput, userId: string) {
-  return insertEvent({
-    creatorId: userId,
+  return db.transaction(async (trx) => {
+    const event = await insertEvent(
+      {
+        creatorId: userId,
+        title: input.title,
+        description: input.description,
+        startsAt: new Date(input.startsAt),
+        endsAt:
+          input.endsAt === null || input.endsAt === undefined
+            ? null
+            : new Date(input.endsAt),
+        location: input.location,
+        visibility: input.visibility,
+        timezone: input.timezone,
+      },
+      trx,
+    );
 
-    title: input.title,
+    if (input.tags !== undefined) {
+      const tagIds = await findOrCreateTags(input.tags, trx);
 
-    description: input.description,
+      await replaceEventTags(event.id, tagIds, trx);
+    }
 
-    startsAt: new Date(input.startsAt),
+    const result = await findEventById(event.id, trx);
 
-    endsAt:
-      input.endsAt === null || input.endsAt === undefined
-        ? null
-        : new Date(input.endsAt),
+    if (!result) {
+      throw new Error("Event was created but could not be retrieved");
+    }
 
-    location: input.location,
-
-    visibility: input.visibility,
-
-    timezone: input.timezone,
+    return result;
   });
 }
 
 const EVENT_NOT_FOUND_MESSAGE = "Event not found";
 
 export async function getEvent(id: string, userId: string) {
-  const event = await findEventById(id);
+  const event = await findEventById(id, db);
 
   if (!event) {
     throw new NotFoundError(EVENT_NOT_FOUND_MESSAGE);
@@ -50,8 +72,12 @@ export async function getEvent(id: string, userId: string) {
   return event;
 }
 
-async function getEventForMutation(id: string, userId: string) {
-  const event = await findEventById(id);
+async function getEventForMutation(
+  id: string,
+  userId: string,
+  executor: Knex | Knex.Transaction,
+) {
+  const event = await findEventById(id, executor);
 
   if (!event) {
     throw new NotFoundError(EVENT_NOT_FOUND_MESSAGE);
@@ -74,29 +100,45 @@ export async function updateEvent(
   input: UpdateEventInput,
   userId: string,
 ) {
-  const event = await getEventForMutation(id, userId);
+  return db.transaction(async (trx) => {
+    const event = await getEventForMutation(id, userId, trx);
 
-  const nextStartsAt =
-    input.startsAt !== undefined ? new Date(input.startsAt) : event.startsAt;
+    const nextStartsAt =
+      input.startsAt !== undefined ? new Date(input.startsAt) : event.startsAt;
 
-  const nextEndsAt =
-    input.endsAt !== undefined
-      ? input.endsAt === null
-        ? null
-        : new Date(input.endsAt)
-      : event.endsAt;
+    const nextEndsAt =
+      input.endsAt !== undefined
+        ? input.endsAt === null
+          ? null
+          : new Date(input.endsAt)
+        : event.endsAt;
 
-  if (nextEndsAt !== null && nextEndsAt <= nextStartsAt) {
-    throw new EventValidationError("endsAt must be after startsAt", "endsAt");
-  }
+    if (nextEndsAt !== null && nextEndsAt <= nextStartsAt) {
+      throw new EventValidationError("endsAt must be after startsAt", "endsAt");
+    }
 
-  return updateEventRepository(id, input);
+    const updatedEvent = await updateEventRepository(id, input, trx);
+
+    if (input.tags !== undefined) {
+      const tagIds = await findOrCreateTags(input.tags, trx);
+
+      await replaceEventTags(id, tagIds, trx);
+    }
+
+    const result = await findEventById(id, trx);
+
+    if (!result) {
+      throw new Error("Event was updated but could not be retrieved");
+    }
+
+    return result;
+  });
 }
 
 export async function deleteEvent(id: string, userId: string): Promise<void> {
   // Same not-found / view / edit guards as update, so a second DELETE of the
   // same event answers 404 exactly as a GET of it would.
-  await getEventForMutation(id, userId);
+  await getEventForMutation(id, userId, db);
 
   await deleteEventRepository(id);
 }

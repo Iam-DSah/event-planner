@@ -1,4 +1,6 @@
+import type { Knex } from "knex";
 import db from "../db/knex.js";
+import { findTagsForEvents } from "./tagRepository.js";
 import type { UpdateEventInput } from "@event-planner/shared";
 
 export interface Event {
@@ -13,6 +15,7 @@ export interface Event {
   timezone: string;
   createdAt: Date;
   updatedAt: Date;
+  tags: string[];
 }
 
 interface EventRow {
@@ -36,13 +39,11 @@ interface InsertEventInput {
   startsAt: Date;
   endsAt: Date | null;
   location: string;
-  // Optional: knex omits an undefined column, so MySQL applies the
-  // events.visibility DEFAULT 'public'. One source of truth for the default.
   visibility?: "public" | "private";
   timezone: string;
 }
 
-function mapEvent(row: EventRow): Event {
+function mapEvent(row: EventRow, tags: string[]): Event {
   return {
     id: String(row.id),
     creatorId: String(row.creator_id),
@@ -55,11 +56,15 @@ function mapEvent(row: EventRow): Event {
     timezone: row.timezone,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    tags,
   };
 }
 
-export async function insertEvent(input: InsertEventInput): Promise<Event> {
-  const [id] = await db("events").insert({
+export async function insertEvent(
+  input: InsertEventInput,
+  trx: Knex.Transaction,
+): Promise<Event> {
+  const [id] = await trx("events").insert({
     creator_id: input.creatorId,
     title: input.title,
     description: input.description,
@@ -70,7 +75,7 @@ export async function insertEvent(input: InsertEventInput): Promise<Event> {
     timezone: input.timezone,
   });
 
-  const event = await findEventById(String(id));
+  const event = await findEventById(String(id), trx);
 
   if (!event) {
     throw new Error("Event was created but could not be retrieved");
@@ -79,8 +84,11 @@ export async function insertEvent(input: InsertEventInput): Promise<Event> {
   return event;
 }
 
-export async function findEventById(id: string): Promise<Event | null> {
-  const row = await db("events")
+export async function findEventById(
+  id: string,
+  executor: Knex | Knex.Transaction,
+): Promise<Event | null> {
+  const row = await executor("events")
     .select(
       "id",
       "creator_id",
@@ -101,12 +109,15 @@ export async function findEventById(id: string): Promise<Event | null> {
     return null;
   }
 
-  return mapEvent(row as EventRow);
+  const tagsByEvent = await findTagsForEvents([id], executor);
+
+  return mapEvent(row, tagsByEvent.get(id) ?? []);
 }
 
 export async function updateEvent(
   id: string,
   input: UpdateEventInput,
+  trx: Knex.Transaction,
 ): Promise<Event> {
   const updates: Record<string, unknown> = {};
 
@@ -138,9 +149,11 @@ export async function updateEvent(
     updates.timezone = input.timezone;
   }
 
-  await db("events").where("id", id).update(updates);
+  if (Object.keys(updates).length > 0) {
+    await trx("events").where("id", id).update(updates);
+  }
 
-  const event = await findEventById(id);
+  const event = await findEventById(id, trx);
 
   if (!event) {
     throw new Error("Event was updated but could not be retrieved");

@@ -58,6 +58,8 @@ const eventFields = {
   visibility: z.enum(["public", "private"]).optional(),
 
   timezone: z.string().min(1),
+
+  tags: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
 };
 
 const eventBaseSchema = z.object(eventFields).strict();

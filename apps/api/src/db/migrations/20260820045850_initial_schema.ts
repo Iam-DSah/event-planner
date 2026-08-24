@@ -27,7 +27,9 @@ export async function up(knex: Knex): Promise<void> {
     table
       .dateTime("updated_at", { precision: 3 })
       .notNullable()
-      .defaultTo(knex.raw("CURRENT_TIMESTAMP(3)"));
+      .defaultTo(
+        knex.raw("CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"),
+      );
   });
 
   // 2. Tags
@@ -85,7 +87,9 @@ export async function up(knex: Knex): Promise<void> {
     table
       .dateTime("updated_at", { precision: 3 })
       .notNullable()
-      .defaultTo(knex.raw("CURRENT_TIMESTAMP(3)"));
+      .defaultTo(
+        knex.raw("CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"),
+      );
 
     table.check(
       "ends_at IS NULL OR ends_at > starts_at",

@@ -37,3 +37,13 @@ export class EmailAlreadyRegisteredError extends Error {
     this.name = "EmailAlreadyRegisteredError";
   }
 }
+
+export class EventValidationError extends Error {
+  readonly field: string;
+
+  constructor(message: string, field: string) {
+    super(message);
+    this.name = "EventValidationError";
+    this.field = field;
+  }
+}

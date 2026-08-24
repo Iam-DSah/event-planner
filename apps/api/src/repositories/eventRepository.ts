@@ -1,4 +1,5 @@
 import db from "../db/knex.js";
+import type { UpdateEventInput } from "@event-planner/shared";
 
 export interface Event {
   id: string;
@@ -35,7 +36,9 @@ interface InsertEventInput {
   startsAt: Date;
   endsAt: Date | null;
   location: string;
-  visibility: "public" | "private";
+  // Optional: knex omits an undefined column, so MySQL applies the
+  // events.visibility DEFAULT 'public'. One source of truth for the default.
+  visibility?: "public" | "private";
   timezone: string;
 }
 
@@ -55,9 +58,7 @@ function mapEvent(row: EventRow): Event {
   };
 }
 
-export async function insertEvent(
-  input: InsertEventInput,
-): Promise<Event> {
+export async function insertEvent(input: InsertEventInput): Promise<Event> {
   const [id] = await db("events").insert({
     creator_id: input.creatorId,
     title: input.title,
@@ -72,17 +73,13 @@ export async function insertEvent(
   const event = await findEventById(String(id));
 
   if (!event) {
-    throw new Error(
-      "Event was created but could not be retrieved",
-    );
+    throw new Error("Event was created but could not be retrieved");
   }
 
   return event;
 }
 
-export async function findEventById(
-  id: string,
-): Promise<Event | null> {
+export async function findEventById(id: string): Promise<Event | null> {
   const row = await db("events")
     .select(
       "id",
@@ -105,4 +102,53 @@ export async function findEventById(
   }
 
   return mapEvent(row as EventRow);
+}
+
+export async function updateEvent(
+  id: string,
+  input: UpdateEventInput,
+): Promise<Event> {
+  const updates: Record<string, unknown> = {};
+
+  if (input.title !== undefined) {
+    updates.title = input.title;
+  }
+
+  if (input.description !== undefined) {
+    updates.description = input.description;
+  }
+
+  if (input.startsAt !== undefined) {
+    updates.starts_at = new Date(input.startsAt);
+  }
+
+  if (input.endsAt !== undefined) {
+    updates.ends_at = input.endsAt === null ? null : new Date(input.endsAt);
+  }
+
+  if (input.location !== undefined) {
+    updates.location = input.location;
+  }
+
+  if (input.visibility !== undefined) {
+    updates.visibility = input.visibility;
+  }
+
+  if (input.timezone !== undefined) {
+    updates.timezone = input.timezone;
+  }
+
+  await db("events").where("id", id).update(updates);
+
+  const event = await findEventById(id);
+
+  if (!event) {
+    throw new Error("Event was updated but could not be retrieved");
+  }
+
+  return event;
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  await db("events").where("id", id).del();
 }

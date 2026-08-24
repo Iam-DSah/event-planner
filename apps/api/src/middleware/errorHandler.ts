@@ -5,6 +5,7 @@ import {
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
+  EventValidationError,
 } from "../errors/domainErrors.js";
 
 type ErrorMapping = {
@@ -15,6 +16,12 @@ type ErrorMapping = {
 
 const errorMappings: ErrorMapping[] = [
   // More specific errors should come first.
+  //
+  // EventValidationError is deliberately absent. This table emits only
+  // { code, message }; that error carries a `field`, and a form needs it to
+  // know which input to highlight. An entry here would match first and make
+  // its dedicated branch below unreachable — the same way an entry for
+  // UnauthorizedError has twice silently erased TOKEN_EXPIRED.
   {
     matches: (error) => error instanceof NotFoundError,
     status: 404,
@@ -129,7 +136,24 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     });
   }
 
-  // 5. Everything else is an unexpected server error.
+  // 5. Validation errors discovered while applying a PATCH.
+  if (err instanceof EventValidationError) {
+    console.warn(
+      `Event validation failed: field=${err.field} message=${err.message}`,
+    );
+
+    return res.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Request validation failed",
+        fields: {
+          [err.field]: [err.message],
+        },
+      },
+    });
+  }
+
+  // 6. Everything else is an unexpected server error.
   console.error(err);
 
   return res.status(500).json({

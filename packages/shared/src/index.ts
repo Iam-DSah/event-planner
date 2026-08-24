@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-// ============================================================
 // Auth
-// ============================================================
 
 export const registerSchema = z
   .object({
@@ -23,9 +21,7 @@ export const loginSchema = z
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-// ============================================================
 // Events
-// ============================================================
 
 const eventFields = {
   title: z.string().trim().min(1).max(200),
@@ -59,7 +55,7 @@ const eventFields = {
 
   location: z.string().trim().min(1).max(255),
 
-  visibility: z.enum(["public", "private"]).default("public"),
+  visibility: z.enum(["public", "private"]).optional(),
 
   timezone: z.string().min(1),
 };
@@ -126,3 +122,42 @@ export const createEventSchema = eventBaseSchema.superRefine(
 );
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;
+
+// UPDATE
+
+export const updateEventSchema = eventBaseSchema
+  .partial()
+  .superRefine((data, ctx) => {
+    if (Object.keys(data).length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message: "At least one field must be provided",
+      });
+    }
+
+    if (
+      data.startsAt !== undefined &&
+      data.endsAt !== undefined &&
+      data.startsAt !== null &&
+      data.endsAt !== null &&
+      new Date(data.endsAt) <= new Date(data.startsAt)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["endsAt"],
+        message: "endsAt must be after startsAt",
+      });
+    }
+
+    // PATCH timezone only needs validation when timezone is supplied.
+    if (data.timezone !== undefined && !isValidIanaTimezone(data.timezone)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["timezone"],
+        message: "timezone must be a valid IANA timezone",
+      });
+    }
+  });
+
+export type UpdateEventInput = z.infer<typeof updateEventSchema>;

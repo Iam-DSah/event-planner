@@ -15,6 +15,14 @@ export interface Event {
   timezone: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * An event plus its tags. Kept separate from `Event` on purpose: loading tags
+ * costs a second query, and it must not happen until the caller has decided
+ * the viewer is allowed to see the event at all. See `attachTags`.
+ */
+export interface EventWithTags extends Event {
   tags: string[];
 }
 
@@ -43,7 +51,7 @@ interface InsertEventInput {
   timezone: string;
 }
 
-function mapEvent(row: EventRow, tags: string[]): Event {
+function mapEvent(row: EventRow): Event {
   return {
     id: String(row.id),
     creatorId: String(row.creator_id),
@@ -56,7 +64,6 @@ function mapEvent(row: EventRow, tags: string[]): Event {
     timezone: row.timezone,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    tags,
   };
 }
 
@@ -109,9 +116,25 @@ export async function findEventById(
     return null;
   }
 
-  const tagsByEvent = await findTagsForEvents([id], executor);
+  return mapEvent(row);
+}
 
-  return mapEvent(row, tagsByEvent.get(id) ?? []);
+/**
+ * Loads an event's tags. Call this only AFTER the viewer has been authorized.
+ *
+ * Doing it inside `findEventById` made an event that exists cost two queries
+ * while a missing id cost one, and that difference is observable: a private
+ * event answered 404 in a median 3.93ms against 2.80ms for an id that never
+ * existed, with non-overlapping quartiles. The bodies were byte-identical and
+ * the stopwatch still told you which ids exist — exactly what the 404 hides.
+ */
+export async function attachTags(
+  event: Event,
+  executor: Knex | Knex.Transaction,
+): Promise<EventWithTags> {
+  const tagsByEvent = await findTagsForEvents([event.id], executor);
+
+  return { ...event, tags: tagsByEvent.get(event.id) ?? [] };
 }
 
 export async function updateEvent(

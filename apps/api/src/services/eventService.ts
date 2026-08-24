@@ -9,6 +9,7 @@ import {
 import {
   insertEvent,
   findEventById,
+  attachTags,
   updateEvent as updateEventRepository,
   deleteEvent as deleteEventRepository,
 } from "../repositories/eventRepository.js";
@@ -52,7 +53,7 @@ export async function createEvent(input: CreateEventInput, userId: string) {
       throw new Error("Event was created but could not be retrieved");
     }
 
-    return result;
+    return attachTags(result, trx);
   });
 }
 
@@ -69,7 +70,9 @@ export async function getEvent(id: string, userId: string) {
     throw new NotFoundError(EVENT_NOT_FOUND_MESSAGE);
   }
 
-  return event;
+  // Tags load only now. Before the guards above, the extra query made an event
+  // that exists measurably slower than one that does not — see attachTags.
+  return attachTags(event, db);
 }
 
 async function getEventForMutation(
@@ -131,7 +134,7 @@ export async function updateEvent(
       throw new Error("Event was updated but could not be retrieved");
     }
 
-    return result;
+    return attachTags(result, trx);
   });
 }
 

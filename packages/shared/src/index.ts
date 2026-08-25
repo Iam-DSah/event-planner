@@ -32,11 +32,7 @@ const positiveIntegerStringSchema = z
 const MAX_OFFSET = 100_000;
 const MAX_TAGS = 20;
 
-const eventListSortSchema = z.enum([
-  "startsAt",
-  "createdAt",
-  "title",
-]);
+const eventListSortSchema = z.enum(["startsAt", "createdAt"]);
 
 const eventListOrderSchema = z.enum(["asc", "desc"]);
 
@@ -48,9 +44,7 @@ const eventListTagSchema = z
 
 export const eventListQuerySchema = z
   .object({
-    page: positiveIntegerStringSchema
-      .default("1")
-      .transform(Number),
+    page: positiveIntegerStringSchema.default("1").transform(Number),
 
     limit: positiveIntegerStringSchema
       .default("20")
@@ -94,9 +88,7 @@ export const eventListQuerySchema = z
 
     visibility: z.enum(["public", "private"]).optional(),
 
-    when: z
-      .enum(["upcoming", "past", "all"])
-      .default("upcoming"),
+    when: z.enum(["upcoming", "past", "all"]).default("upcoming"),
 
     sort: eventListSortSchema.default("startsAt"),
 
@@ -123,9 +115,7 @@ export const eventListQuerySchema = z
     }
   });
 
-export type EventListQueryInput = z.infer<
-  typeof eventListQuerySchema
->;
+export type EventListQueryInput = z.infer<typeof eventListQuerySchema>;
 
 const eventFields = {
   title: z.string().trim().min(1).max(200),

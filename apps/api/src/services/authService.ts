@@ -223,19 +223,12 @@ export async function issueSession(userId: string): Promise<SessionTokens> {
   const familyId = randomUUID();
   const now = new Date();
 
-  const token = await issueTokenInFamily(
-    userId,
-    familyId,
-    now,
-    db,
-  );
+  const token = await issueTokenInFamily(userId, familyId, now, db);
 
   return sessionFor(userId, token);
 }
 
-export async function revokeSession(
-  presentedToken: string,
-): Promise<void> {
+export async function revokeSession(presentedToken: string): Promise<void> {
   const tokenHash = hashRefreshToken(presentedToken);
 
   const token = await findRefreshTokenByHash(tokenHash, db);

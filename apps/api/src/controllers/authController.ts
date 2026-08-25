@@ -1,17 +1,43 @@
 import type { NextFunction, Request, Response } from "express";
 import { loginSchema, registerSchema } from "@event-planner/shared";
-import { authenticateUser, registerUser } from "../services/authService.js";
-import { signToken } from "../lib/jwt.js";
 import {
-  ACCESS_TOKEN_TTL_SECONDS,
-  REFRESH_TOKEN_TTL_SECONDS,
-} from "../lib/tokenTtl.js";
+  authenticateUser,
+  issueSession,
+  registerUser,
+  revokeSession,
+  type SessionTokens,
+} from "../services/authService.js";
+import { ACCESS_TOKEN_TTL_SECONDS } from "../lib/tokenTtl.js";
 
 const cookieOptions = {
   httpOnly: true,
   secure: true,
   sameSite: "lax" as const,
 };
+
+const ACCESS_COOKIE_OPTIONS = {
+  ...cookieOptions,
+  path: "/",
+  maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
+};
+
+const REFRESH_COOKIE_PATH = "/api/v1/auth";
+
+const REFRESH_COOKIE_OPTIONS = (refreshExpiresAt: Date) => ({
+  ...cookieOptions,
+  path: REFRESH_COOKIE_PATH,
+  maxAge: Math.max(0, refreshExpiresAt.getTime() - Date.now()),
+});
+
+function setSessionCookies(res: Response, session: SessionTokens): void {
+  res.cookie("access_token", session.accessToken, ACCESS_COOKIE_OPTIONS);
+
+  res.cookie(
+    "refresh_token",
+    session.refreshToken,
+    REFRESH_COOKIE_OPTIONS(session.refreshExpiresAt),
+  );
+}
 
 export async function register(
   req: Request,
@@ -23,16 +49,11 @@ export async function register(
 
     const user = await registerUser(input);
 
-    const token = signToken(String(user.id));
+    const session = await issueSession(user.id);
 
-    res.cookie("access_token", token, {
-      ...cookieOptions,
-      maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
-    });
+    setSessionCookies(res, session);
 
-    res.status(201).json({
-      user,
-    });
+    res.status(201).json({ user });
   } catch (error) {
     next(error);
   }
@@ -48,23 +69,45 @@ export async function login(
 
     const user = await authenticateUser(input);
 
-    const token = signToken(user.id);
+    const session = await issueSession(user.id);
 
-    res.cookie("access_token", token, {
-      ...cookieOptions,
-      maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
-    });
+    setSessionCookies(res, session);
 
-    res.status(200).json({
-      user,
-    });
+    res.status(200).json({ user });
   } catch (error) {
     next(error);
   }
 }
 
-export function logout(_req: Request, res: Response): void {
-  res.clearCookie("access_token", cookieOptions);
+export async function logout(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const presented: string | undefined = req.cookies?.refresh_token;
 
-  res.status(204).send();
+    // Revoking the family is what makes logout mean something: clearing the
+    // cookies only removes the browser's copy, and a refresh token captured
+    // earlier would otherwise stay valid for its full 30 days.
+    if (presented) {
+      await revokeSession(presented);
+    }
+
+    // clearCookie only removes a cookie whose attributes match the ones it was
+    // set with, so each path has to match what setSessionCookies used.
+    res.clearCookie("access_token", {
+      ...cookieOptions,
+      path: "/",
+    });
+
+    res.clearCookie("refresh_token", {
+      ...cookieOptions,
+      path: REFRESH_COOKIE_PATH,
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
 }

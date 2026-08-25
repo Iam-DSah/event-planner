@@ -32,8 +32,46 @@ import {
 
 import db from "../db/knex.js";
 
-export async function createEvent(input: CreateEventInput, userId: string) {
-  return db.transaction(async (trx) => {
+async function runTransactionWithDeadlockRetry<T>(
+  work: (trx: Knex.Transaction) => Promise<T>,
+  maxAttempts = 3,
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await db.transaction(work);
+    } catch (error) {
+      const isDeadlock =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "ER_LOCK_DEADLOCK";
+
+      if (!isDeadlock || attempt === maxAttempts) {
+        throw error;
+      }
+
+      // Full jitter, growing with the attempt. Without a delay two
+      // transactions that deadlocked together retry at the same instant and
+      // can collide again, so more attempts alone would not help — separating
+      // them in time is what breaks the cycle.
+      const backoffMs = Math.random() * 20 * attempt;
+
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+
+      console.warn(
+        `Retrying transaction after ER_LOCK_DEADLOCK (attempt ${attempt} of ${maxAttempts})`,
+      );
+    }
+  }
+
+  throw new Error("Transaction retry failed");
+}
+
+export async function createEvent(
+  input: CreateEventInput,
+  userId: string,
+): Promise<EventWithTags> {
+  return runTransactionWithDeadlockRetry(async (trx) => {
     const event = await insertEvent(
       {
         creatorId: userId,
@@ -51,19 +89,25 @@ export async function createEvent(input: CreateEventInput, userId: string) {
       trx,
     );
 
-    if (input.tags !== undefined) {
-      const tagIds = await findOrCreateTags(input.tags, trx);
-
-      await replaceEventTags(event.id, tagIds, trx);
+    if (input.tags === undefined) {
+      return {
+        ...event,
+        tags: [],
+      };
     }
 
-    const result = await findEventById(event.id, trx);
+    const tags = await findOrCreateTags(input.tags, trx);
 
-    if (!result) {
-      throw new Error("Event was created but could not be retrieved");
-    }
+    await replaceEventTags(
+      event.id,
+      tags.map((tag) => String(tag.id)),
+      trx,
+    );
 
-    return attachTags(result, trx);
+    return {
+      ...event,
+      tags: tags.map((tag) => tag.name),
+    };
   });
 }
 
@@ -112,8 +156,11 @@ export async function updateEvent(
   id: string,
   input: UpdateEventInput,
   userId: string,
-) {
-  return db.transaction(async (trx) => {
+): Promise<EventWithTags> {
+  return runTransactionWithDeadlockRetry(async (trx) => {
+    // Read, decide and write inside ONE transaction (D014). Outside it, the row
+    // could be deleted between the guard and the update — and on a retry the
+    // guard would not re-run, so attempt 2 would write on attempt 1's decision.
     const event = await getEventForMutation(id, userId, trx);
 
     const nextStartsAt =
@@ -132,19 +179,25 @@ export async function updateEvent(
 
     const updatedEvent = await updateEventRepository(id, input, trx);
 
-    if (input.tags !== undefined) {
-      const tagIds = await findOrCreateTags(input.tags, trx);
-
-      await replaceEventTags(id, tagIds, trx);
+    // An absent `tags` key leaves the tag set untouched, so the response has to
+    // report the tags the event still has. Returning [] here would claim the
+    // event has none while the rows are sitting in the database.
+    if (input.tags === undefined) {
+      return attachTags(updatedEvent, trx);
     }
 
-    const result = await findEventById(id, trx);
+    const tags = await findOrCreateTags(input.tags, trx);
 
-    if (!result) {
-      throw new Error("Event was updated but could not be retrieved");
-    }
+    await replaceEventTags(
+      id,
+      tags.map((tag) => String(tag.id)),
+      trx,
+    );
 
-    return attachTags(result, trx);
+    return {
+      ...updatedEvent,
+      tags: tags.map((tag) => tag.name),
+    };
   });
 }
 

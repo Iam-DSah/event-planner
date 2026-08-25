@@ -51,6 +51,20 @@ interface InsertEventInput {
   timezone: string;
 }
 
+const eventColumns = [
+  "id",
+  "creator_id",
+  "title",
+  "description",
+  "starts_at",
+  "ends_at",
+  "location",
+  "visibility",
+  "timezone",
+  "created_at",
+  "updated_at",
+] as const;
+
 function mapEvent(row: EventRow): Event {
   return {
     id: String(row.id),
@@ -96,19 +110,7 @@ export async function findEventById(
   executor: Knex | Knex.Transaction,
 ): Promise<Event | null> {
   const row = await executor("events")
-    .select(
-      "id",
-      "creator_id",
-      "title",
-      "description",
-      "starts_at",
-      "ends_at",
-      "location",
-      "visibility",
-      "timezone",
-      "created_at",
-      "updated_at",
-    )
+    .select(eventColumns)
     .where("id", id)
     .first();
 
@@ -135,6 +137,106 @@ export async function attachTags(
   const tagsByEvent = await findTagsForEvents([event.id], executor);
 
   return { ...event, tags: tagsByEvent.get(event.id) ?? [] };
+}
+
+type EventSort = "startsAt" | "createdAt";
+
+export interface EventListWhereFilters {
+  viewerId: string;
+  now: Date;
+  visibility?: "public" | "private";
+  when?: "upcoming" | "past";
+  tags: string[];
+}
+
+export interface EventListQuery extends EventListWhereFilters {
+  sort: EventSort;
+  order: "asc" | "desc";
+  limit: number;
+  offset: number;
+}
+
+const sortColumns: Record<EventSort, "starts_at" | "created_at"> = {
+  startsAt: "starts_at",
+  createdAt: "created_at",
+};
+
+function applyEventListFilters(
+  query: Knex.QueryBuilder,
+  filters: EventListWhereFilters,
+): Knex.QueryBuilder {
+  query.where(function () {
+    this.where("visibility", "public").orWhere("creator_id", filters.viewerId);
+  });
+
+  if (filters.visibility !== undefined) {
+    query.where("visibility", filters.visibility);
+  }
+
+  if (filters.when === "upcoming") {
+    query.where("starts_at", ">=", filters.now);
+  } else if (filters.when === "past") {
+    query.where("starts_at", "<", filters.now);
+  }
+
+  for (const tag of filters.tags) {
+    query.whereExists(function () {
+      this.select(db.raw("1"))
+        .from("event_tags")
+        .join("tags", "tags.id", "event_tags.tag_id")
+        .whereRaw("event_tags.event_id = events.id")
+        .where("tags.name", tag);
+    });
+  }
+
+  return query;
+}
+
+export async function findEvents(
+  filters: EventListQuery,
+): Promise<EventWithTags[]> {
+  const query = db("events").select(eventColumns);
+
+  applyEventListFilters(query, filters);
+
+  const sortColumn = sortColumns[filters.sort];
+
+  query
+    .orderBy(sortColumn, filters.order)
+    .orderBy("id", filters.order)
+    .limit(filters.limit)
+    .offset(filters.offset);
+
+  const rows = await query;
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const events = rows.map((row) => mapEvent(row));
+
+  const eventIds = events.map((event) => event.id);
+
+  const tagsByEventId = await findTagsForEvents(eventIds, db);
+
+  return events.map((event) => ({
+    ...event,
+    tags: tagsByEventId.get(event.id) ?? [],
+  }));
+}
+
+export async function countEvents(
+  filters: EventListWhereFilters,
+): Promise<number> {
+  const query = db("events").count<{ count: string }[]>({
+    count: "*",
+  });
+
+  applyEventListFilters(query, filters);
+
+  const row = await query.first();
+
+  return Number(row?.count ?? 0);
 }
 
 export async function updateEvent(

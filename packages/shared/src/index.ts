@@ -23,6 +23,110 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 // Events
 
+// Event listing
+
+const positiveIntegerStringSchema = z
+  .string()
+  .regex(/^[1-9]\d*$/, "Must be a positive integer");
+
+const MAX_OFFSET = 100_000;
+const MAX_TAGS = 20;
+
+const eventListSortSchema = z.enum([
+  "startsAt",
+  "createdAt",
+  "title",
+]);
+
+const eventListOrderSchema = z.enum(["asc", "desc"]);
+
+const eventListTagSchema = z
+  .string()
+  .trim()
+  .min(1, "Tag must not be empty")
+  .max(50, "Tag must be 50 characters or fewer");
+
+export const eventListQuerySchema = z
+  .object({
+    page: positiveIntegerStringSchema
+      .default("1")
+      .transform(Number),
+
+    limit: positiveIntegerStringSchema
+      .default("20")
+      .transform(Number)
+      .refine((value) => value <= 100, {
+        message: "limit must be between 1 and 100",
+      }),
+
+    tag: z
+      .union([eventListTagSchema, z.array(eventListTagSchema)])
+      .optional()
+      .transform((value) => {
+        if (value === undefined) {
+          return [];
+        }
+
+        const values = Array.isArray(value) ? value : [value];
+
+        // MySQL uses a case-insensitive collation for tags.name,
+        // so dedupe using lowercase keys while preserving
+        // the first spelling supplied by the client.
+        const seen = new Set<string>();
+        const tags: string[] = [];
+
+        for (const value of values) {
+          const key = value.toLowerCase();
+
+          if (seen.has(key)) {
+            continue;
+          }
+
+          seen.add(key);
+          tags.push(value);
+        }
+
+        return tags;
+      })
+      .refine((tags) => tags.length <= MAX_TAGS, {
+        message: `A maximum of ${MAX_TAGS} unique tags may be provided`,
+      }),
+
+    visibility: z.enum(["public", "private"]).optional(),
+
+    when: z
+      .enum(["upcoming", "past", "all"])
+      .default("upcoming"),
+
+    sort: eventListSortSchema.default("startsAt"),
+
+    order: eventListOrderSchema.default("asc"),
+  })
+  .transform((query) => ({
+    page: query.page,
+    limit: query.limit,
+    tags: query.tag,
+    visibility: query.visibility,
+    when: query.when,
+    sort: query.sort,
+    order: query.order,
+  }))
+  .superRefine((data, ctx) => {
+    const offset = (data.page - 1) * data.limit;
+
+    if (offset > MAX_OFFSET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["page"],
+        message: "Requested page is too far into the result set",
+      });
+    }
+  });
+
+export type EventListQueryInput = z.infer<
+  typeof eventListQuerySchema
+>;
+
 const eventFields = {
   title: z.string().trim().min(1).max(200),
 

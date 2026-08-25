@@ -1,10 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
-
 import { loginSchema, registerSchema } from "@event-planner/shared";
-
 import { authenticateUser, registerUser } from "../services/authService.js";
-
 import { signToken } from "../lib/jwt.js";
+import {
+  ACCESS_TOKEN_TTL_SECONDS,
+  REFRESH_TOKEN_TTL_SECONDS,
+} from "../lib/tokenTtl.js";
 
 const cookieOptions = {
   httpOnly: true,
@@ -26,7 +27,7 @@ export async function register(
 
     res.cookie("access_token", token, {
       ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
+      maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
     });
 
     res.status(201).json({
@@ -51,7 +52,7 @@ export async function login(
 
     res.cookie("access_token", token, {
       ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
+      maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
     });
 
     res.status(200).json({

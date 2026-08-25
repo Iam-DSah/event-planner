@@ -1,16 +1,16 @@
 import jwt from "jsonwebtoken";
 import { requireEnv } from "./env.js";
+import { ACCESS_TOKEN_TTL_SECONDS } from "./tokenTtl.js";
 
 const JWT_SECRET = requireEnv("JWT_SECRET", 32);
 
 const JWT_ALGORITHM = "HS256" as const;
-const JWT_EXPIRES_IN = "15m";
 
 export function signToken(userId: string): string {
   return jwt.sign({}, JWT_SECRET, {
     algorithm: JWT_ALGORITHM,
     subject: userId,
-    expiresIn: JWT_EXPIRES_IN,
+    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
   });
 }
 

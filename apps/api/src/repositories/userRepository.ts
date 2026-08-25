@@ -72,3 +72,20 @@ export async function findUserForLoginByEmail(
     passwordHash: user.password_hash,
   };
 }
+
+export async function findUserById(id: string): Promise<User | null> {
+  const user = await db("users")
+    .select("id", "name", "email")
+    .where("id", id)
+    .first();
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: String(user.id),
+    name: user.name,
+    email: user.email,
+  };
+}

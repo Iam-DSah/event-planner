@@ -5,8 +5,15 @@ import { notFoundHandler } from "./middleware/notFoundHandler.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import authRouter from "./routes/auth.js";
 import eventsRouter from "./routes/events.js";
+import { corsMiddleware } from "./middleware/cors.js";
 
 const app = express();
+
+// CORS MUST come first. cors() writes its headers synchronously before
+// next(), so everything downstream — including a 413 thrown by the body
+// parser below — inherits them. Mounted lower, those error responses arrive
+// with no CORS headers and the browser discards them unread.
+app.use(corsMiddleware);
 
 app.use(cookieParser());
 app.use(express.json({ limit: "100kb" }));

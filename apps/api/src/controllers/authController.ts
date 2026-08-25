@@ -7,6 +7,7 @@ import {
   revokeSession,
   type SessionTokens,
   rotateSession,
+  getCurrentUser,
 } from "../services/authService.js";
 import { ACCESS_TOKEN_TTL_SECONDS } from "../lib/tokenTtl.js";
 import { UnauthorizedError } from "../errors/domainErrors.js";
@@ -133,5 +134,25 @@ export async function refresh(
     res.status(204).send();
   } catch (err) {
     next(err);
+  }
+}
+
+export async function me(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
+
+    const user = await getCurrentUser(userId);
+
+    res.status(200).json({ user });
+  } catch (error) {
+    next(error);
   }
 }

@@ -12,6 +12,8 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @event-planner/api",
+    "//dev:web": "npm workspaces has no parallel runner, so days 7+ mean two terminals: `npm run dev` for the API, `npm run dev:web` for Vite.",
+    "dev:web": "npm run dev -w @event-planner/web",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && docker compose up -d --wait",

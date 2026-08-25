@@ -2,6 +2,7 @@ import type { LoginInput, RegisterInput } from "@event-planner/shared";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import {
   createUser,
+  findUserById,
   findUserForLoginByEmail,
   type User,
 } from "../repositories/userRepository.js";
@@ -238,4 +239,16 @@ export async function revokeSession(presentedToken: string): Promise<void> {
   }
 
   await revokeRefreshTokenFamily(token.familyId, db);
+}
+
+export async function getCurrentUser(userId: string): Promise<User> {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    console.warn(`Authenticated user not found: ${userId}`);
+
+    throw new UnauthorizedError();
+  }
+
+  return user;
 }

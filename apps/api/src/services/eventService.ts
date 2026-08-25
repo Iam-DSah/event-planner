@@ -1,4 +1,8 @@
-import type { CreateEventInput, UpdateEventInput } from "@event-planner/shared";
+import type {
+  CreateEventInput,
+  UpdateEventInput,
+  EventListQueryInput,
+} from "@event-planner/shared";
 import type { Knex } from "knex";
 
 import {
@@ -10,8 +14,14 @@ import {
   insertEvent,
   findEventById,
   attachTags,
+  findEvents,
+  countEvents,
   updateEvent as updateEventRepository,
   deleteEvent as deleteEventRepository,
+} from "../repositories/eventRepository.js";
+import type {
+  EventListQuery,
+  EventWithTags,
 } from "../repositories/eventRepository.js";
 
 import {
@@ -144,4 +154,31 @@ export async function deleteEvent(id: string, userId: string): Promise<void> {
   await getEventForMutation(id, userId, db);
 
   await deleteEventRepository(id);
+}
+
+export async function listEvents(
+  query: EventListQueryInput,
+  userId: string,
+): Promise<{ events: EventWithTags[]; total: number }> {
+  const now = new Date();
+  const offset = (query.page - 1) * query.limit;
+
+  const repositoryQuery: EventListQuery = {
+    viewerId: userId,
+    now,
+    visibility: query.visibility,
+    when: query.when === "all" ? undefined : query.when,
+    tags: query.tags,
+    sort: query.sort,
+    order: query.order,
+    limit: query.limit,
+    offset,
+  };
+
+  const [events, total] = await Promise.all([
+    findEvents(repositoryQuery),
+    countEvents(repositoryQuery),
+  ]);
+
+  return { events, total };
 }

@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.js";
+import { AuthProvider } from "./auth/AuthContext.js";
 
 /**
  * Mount point only — find the root element, fail loudly if it is missing, and
@@ -16,7 +17,9 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>,
 );
 

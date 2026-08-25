@@ -1,16 +1,20 @@
-import { useEffect } from "react";
-import { getMe } from "./api/client.js";
+import { useAuth } from "./auth/AuthContext.js";
 
 export default function App() {
-  useEffect(() => {
-    getMe()
-      .then((result) => {
-        console.log("Current user:", result.user);
-      })
-      .catch((error) => {
-        console.error("getMe failed:", error);
-      });
-  }, []);
+  const { status, user, logout } = useAuth();
 
-  return <div>Event Planner</div>;
+  if (status === "loading") {
+    return <p>Loading…</p>;
+  }
+
+  if (status === "anonymous") {
+    return <p>Not signed in.</p>;
+  }
+
+  return (
+    <div>
+      <p>Signed in as {user?.name}</p>
+      <button onClick={() => void logout()}>Log out</button>
+    </div>
+  );
 }

@@ -1,6 +1,19 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/v1";
 
+// One in-flight refresh for the whole module. Concurrent 401s await this same
+// promise instead of each firing their own rotation.
+let refreshInFlight: Promise<boolean> | null = null;
+
+// Set by AuthProvider. Means "the session unexpectedly became invalid" — NOT
+// "the user logged out", which is a deliberate local transition the provider
+// owns in its own finally block.
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(callback: (() => void) | null): void {
+  onUnauthorized = callback;
+}
+
 interface ApiErrorBody {
   code: string;
   message: string;
@@ -12,28 +25,18 @@ interface ApiErrorResponse {
 }
 
 export class ApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly fields?: Record<string, string[]>;
-
   constructor(
-    status: number,
-    code: string,
+    public readonly status: number,
+    public readonly code: string,
     message: string,
-    fields?: Record<string, string[]>,
+    // The per-field map from errorHandler's ZodError branch. Forms need it to
+    // mark which input failed; {code, message} alone cannot say.
+    public readonly fields?: Record<string, string[]>,
   ) {
     super(message);
-
     this.name = "ApiError";
-    this.status = status;
-    this.code = code;
-    this.fields = fields;
   }
 }
-
-// One in-flight refresh for the whole module. Concurrent 401s await this same
-// promise instead of each firing their own rotation.
-let refreshInFlight: Promise<boolean> | null = null;
 
 // A 401 from these is an answer, not a stale session: login means wrong
 // password, and refreshing on /auth/refresh would recurse.
@@ -83,7 +86,6 @@ async function parseResponse<T>(response: Response): Promise<T> {
         response.status,
         errorBody.error.code,
         errorBody.error.message,
-        // Carries the per-field map from errorHandler's ZodError branch.
         errorBody.error.fields,
       );
     }
@@ -129,8 +131,6 @@ export async function request<T>(
   // forces a preflight on every bodyless GET — measured server-side:
   //   with the header:     OPTIONS /probe  then  GET /probe
   //   without the header:  GET /probe
-  // Access-Control-Max-Age hides most of that after the first call, but the
-  // fix is not to lean on the browser's preflight cache.
   const hasBody = options.body !== undefined && options.body !== null;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -158,6 +158,10 @@ export async function request<T>(
         // deleted user loops forever — refresh succeeds, /me 401s, repeat.
         return request<T>(path, options, true);
       }
+
+      // A refresh has now failed, so the session is provably dead. This is the
+      // only place that fires: a 401 the refresh then fixes is not a logout.
+      onUnauthorized?.();
     }
 
     // The refresh could not recover the session, so the caller's ORIGINAL
@@ -173,10 +177,45 @@ export interface User {
   email: string;
 }
 
-export async function getHealth(): Promise<{ status: string }> {
-  return request<{ status: string }>("/health");
+interface AuthCredentials {
+  email: string;
+  password: string;
 }
 
-export async function getMe(): Promise<{ user: User }> {
-  return request<{ user: User }>("/auth/me");
+interface AuthResponse {
+  user: User;
+}
+
+export async function login(credentials: AuthCredentials): Promise<User> {
+  const response = await request<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(credentials),
+  });
+
+  return response.user;
+}
+
+export async function register(
+  credentials: AuthCredentials & { name: string },
+): Promise<User> {
+  const response = await request<AuthResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(credentials),
+  });
+
+  return response.user;
+}
+
+export async function getMe(): Promise<User> {
+  const response = await request<AuthResponse>("/auth/me");
+
+  return response.user;
+}
+
+export async function logout(): Promise<void> {
+  await request<void>("/auth/logout", { method: "POST" });
+}
+
+export async function getHealth(): Promise<{ status: string }> {
+  return request<{ status: string }>("/health");
 }

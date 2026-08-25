@@ -28,8 +28,27 @@
 
     // Vite does the emitting. tsc here is a type checker only, picked up by
     // `npm run typecheck` at the root through --workspaces.
-    "noEmit": true
+    "noEmit": true,
+
+    // Ambient types for import.meta.env and Vite's asset imports.
+    //
+    // Naming this array is NOT by itself enough to keep @types/node out. That
+    // was checked, not assumed: with vite.config.ts in the program, `process`
+    // still typechecks, because vite's own config types pull node in —
+    //   @types/node/index.d.ts
+    //     Type library referenced via 'node' from vite/dist/node/index.d.ts
+    // It takes the "include" below, which keeps vite.config.ts out of this
+    // program entirely, for `process.env.X` in src/ to become the compile
+    // error it should be. That matters: Vite does not polyfill `process`, so
+    // the alternative is a TypeError in the browser that tsc never flagged.
+    // Use import.meta.env.VITE_* — and note only VITE_-prefixed vars are
+    // exposed, deliberately, so DB_PASSWORD cannot reach the bundle.
+    "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts"],
+  // src only. The ceiling accepted: vite.config.ts is no longer typechecked —
+  // 18 lines that Vite validates at startup anyway. If that file grows, split
+  // into tsconfig.app.json + tsconfig.node.json, which is what the stock Vite
+  // template does and why it does it.
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

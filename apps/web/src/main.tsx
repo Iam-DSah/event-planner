@@ -1,9 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import App from "./App.js";
 
 /**
- * Mount point only. The placeholder below is scaffolding — replace it with
- * your <App /> once there is one; this file should not grow.
+ * Mount point only — find the root element, fail loudly if it is missing, and
+ * render. Everything else belongs in App.tsx; this file should not grow.
  */
 
 const rootElement = document.getElementById("root");
@@ -15,7 +16,7 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <h1>Event Planner</h1>
+    <App />
   </StrictMode>,
 );
 

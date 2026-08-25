@@ -6,8 +6,10 @@ import {
   registerUser,
   revokeSession,
   type SessionTokens,
+  rotateSession,
 } from "../services/authService.js";
 import { ACCESS_TOKEN_TTL_SECONDS } from "../lib/tokenTtl.js";
+import { UnauthorizedError } from "../errors/domainErrors.js";
 
 const cookieOptions = {
   httpOnly: true,
@@ -109,5 +111,27 @@ export async function logout(
     res.status(204).send();
   } catch (error) {
     next(error);
+  }
+}
+
+export async function refresh(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const presentedToken = req.cookies?.refresh_token;
+
+    if (!presentedToken) {
+      throw new UnauthorizedError();
+    }
+
+    const session = await rotateSession(presentedToken);
+
+    setSessionCookies(res, session);
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
   }
 }

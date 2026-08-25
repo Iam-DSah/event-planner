@@ -3,6 +3,7 @@ import type {
   UpdateEventInput,
   EventListQueryInput,
 } from "@event-planner/shared";
+
 import type { Knex } from "knex";
 
 import {
@@ -16,6 +17,7 @@ import {
   attachTags,
   findEvents,
   countEvents,
+  touchEvent,
   updateEvent as updateEventRepository,
   deleteEvent as deleteEventRepository,
 } from "../repositories/eventRepository.js";
@@ -194,8 +196,23 @@ export async function updateEvent(
       trx,
     );
 
+    // Supplying `tags` always counts as a change, so `updated_at` moves even
+    // when no `events` column did — knex skips an empty update, so MySQL's
+    // ON UPDATE CURRENT_TIMESTAMP(3) would never fire. When a column *did*
+    // change this rewrites the same instant, which is deliberate: cheaper than
+    // working out whether the column update already fired it.
+    await touchEvent(id, trx);
+
+    // Re-read: `updatedEvent` was fetched before touchEvent moved updated_at,
+    // so returning it would report a timestamp that was never true.
+    const refreshed = await findEventById(id, trx);
+
+    if (!refreshed) {
+      throw new Error("Event was updated but could not be retrieved");
+    }
+
     return {
-      ...updatedEvent,
+      ...refreshed,
       tags: tags.map((tag) => tag.name),
     };
   });

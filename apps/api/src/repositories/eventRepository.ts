@@ -290,3 +290,14 @@ export async function updateEvent(
 export async function deleteEvent(id: string): Promise<void> {
   await db("events").where("id", id).del();
 }
+
+export async function touchEvent(
+  id: string,
+  trx: Knex.Transaction,
+): Promise<void> {
+  await trx("events")
+    .where("id", id)
+    .update({
+      updated_at: trx.fn.now(3),
+    });
+}

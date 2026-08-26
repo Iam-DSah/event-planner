@@ -172,6 +172,16 @@ export default function EventsPage() {
       next.delete("visibility");
     }
 
+    const q = String(data.get("q") ?? "").trim();
+
+    // Trimmed, and omitted when empty: the API rejects ?q= as a 400 rather
+    // than reading it as "no search", the same rule as ?tag=.
+    if (q) {
+      next.set("q", q);
+    } else {
+      next.delete("q");
+    }
+
     if (data.get("mine") === "true") {
       next.set("mine", "true");
     } else {
@@ -199,6 +209,23 @@ export default function EventsPage() {
         uncontrolled input ignores a changed defaultValue once mounted, so the
         key remounts the form instead — one line rather than an effect. */}
       <form key={search} onSubmit={applyFilters}>
+        <div>
+          <label htmlFor="search">Search</label>
+
+          {/* type="search" for the native clear button and correct mobile
+            keyboard. Enter submits because it is a text input inside a form —
+            no key handler needed. Searching also clears ?page= via the
+            delete("page") in applyFilters, since page 5 of the old results
+            means nothing against a new query. */}
+          <input
+            id="search"
+            name="q"
+            type="search"
+            placeholder="Title, description or location"
+            defaultValue={params?.q ?? ""}
+          />
+        </div>
+
         <div>
           <label htmlFor="when">When</label>
 

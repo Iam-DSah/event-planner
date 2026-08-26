@@ -248,11 +248,12 @@ export interface Pagination {
 export interface EventListParams {
   page?: number;
   limit?: number;
+  q?: string;
   tags?: string[];
   visibility?: "public" | "private";
   mine?: boolean;
   when?: "upcoming" | "past" | "all";
-  sort?: "startsAt" | "createdAt";
+  sort?: "startsAt" | "createdAt" | "relevance";
   order?: "asc" | "desc";
 }
 
@@ -272,6 +273,11 @@ export async function listEvents(
   };
 
   set("page", params.page);
+
+  // The user's literal words. The API turns them into BOOLEAN MODE syntax;
+  // sending pre-mangled text would make ?q= unreadable in a shared link and
+  // put the same rule in two places.
+  set("q", params.q);
   set("limit", params.limit);
   set("visibility", params.visibility);
 

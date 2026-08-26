@@ -1,4 +1,6 @@
 import type { Knex } from "knex";
+
+import { toBooleanSearchQuery } from "../lib/searchQuery.js";
 import db from "../db/knex.js";
 import { findTagsForEvents } from "./tagRepository.js";
 import type { UpdateEventInput } from "@event-planner/shared";
@@ -139,7 +141,7 @@ export async function attachTags(
   return { ...event, tags: tagsByEvent.get(event.id) ?? [] };
 }
 
-type EventSort = "startsAt" | "createdAt";
+type EventSort = "startsAt" | "createdAt" | "relevance";
 
 export interface EventListWhereFilters {
   viewerId: string;
@@ -148,6 +150,7 @@ export interface EventListWhereFilters {
   when?: "upcoming" | "past";
   tags: string[];
   mine: boolean;
+  q?: string;
 }
 
 export interface EventListQuery extends EventListWhereFilters {
@@ -157,10 +160,28 @@ export interface EventListQuery extends EventListWhereFilters {
   offset: number;
 }
 
-const sortColumns: Record<EventSort, "starts_at" | "created_at"> = {
+/**
+ * Only the column-backed sorts. "relevance" is deliberately absent: it is an
+ * expression, not a column, so a Record<EventSort, ...> would force a fake
+ * entry here and the compiler would stop objecting when someone indexes into
+ * it with "relevance" and gets a column name that means nothing.
+ */
+const sortColumns: Record<
+  "startsAt" | "createdAt",
+  "starts_at" | "created_at"
+> = {
   startsAt: "starts_at",
   createdAt: "created_at",
 };
+
+/**
+ * Written once and used by BOTH the WHERE and the ORDER BY. MySQL reuses a
+ * single FULLTEXT scan only when the two expressions are identical, and a
+ * constant is also the only way to guarantee they cannot drift apart later.
+ */
+const SEARCH_MATCH =
+  "MATCH(events.title, events.description, events.location) " +
+  "AGAINST(? IN BOOLEAN MODE)";
 
 function applyEventListFilters(
   query: Knex.QueryBuilder,
@@ -178,6 +199,14 @@ function applyEventListFilters(
 
   if (filters.mine) {
     query.where("creator_id", filters.viewerId);
+  }
+
+  // THE TRAP D022 named: this belongs in applyEventListFilters, the single
+  // WHERE builder that findEvents AND countEvents both call. Adding it to only
+  // the row query leaves `total` counting unsearched rows — the pager reports
+  // a number the list can never reach, and nothing errors.
+  if (filters.q !== undefined) {
+    query.whereRaw(SEARCH_MATCH, [toBooleanSearchQuery(filters.q)]);
   }
 
   if (filters.visibility !== undefined) {
@@ -210,10 +239,41 @@ export async function findEvents(
 
   applyEventListFilters(query, filters);
 
-  const sortColumn = sortColumns[filters.sort];
+  if (filters.sort === "relevance") {
+    // orderByRaw because the sort key is an expression. `direction` is mapped
+    // from a validated enum rather than interpolated from input, and the
+    // search text stays a bound parameter.
+    const direction = filters.order === "desc" ? "desc" : "asc";
 
+    query.orderByRaw(`${SEARCH_MATCH} ${direction}`, [
+      toBooleanSearchQuery(filters.q ?? ""),
+    ]);
+  } else {
+    query.orderBy(sortColumns[filters.sort], filters.order);
+  }
+
+  /**
+   * The `id` tiebreaker is kept for relevance too, and it is NOT free.
+   * Measured on 415 matching rows:
+   *
+   *   ORDER BY relevance DESC, id DESC   Using filesort                 3.93ms
+   *   ORDER BY relevance DESC            Ft_hints: sorted, limit = 20   1.78ms
+   *
+   * Without a second key MySQL pushes the sort AND the limit into the FULLTEXT
+   * scan. With one it materialises every match and sorts — which is precisely
+   * the 4.2ms vs 66ms gap D022 measured at 200k rows.
+   *
+   * Kept anyway: relevance scores tie constantly, MySQL guarantees no order
+   * among ties, and offset pagination over an unstable sort silently repeats
+   * and skips rows between pages. A user sees that; they do not see 60ms.
+   * Dropping it only for relevance would also make this the one sort in the
+   * app without a deterministic key.
+   *
+   * The upgrade that removes the trade-off entirely is keyset pagination on
+   * (score, id) rather than OFFSET — the same conclusion D018 reached about
+   * offset paging generally, and the same reason it was not built.
+   */
   query
-    .orderBy(sortColumn, filters.order)
     .orderBy("id", filters.order)
     .limit(filters.limit)
     .offset(filters.offset);

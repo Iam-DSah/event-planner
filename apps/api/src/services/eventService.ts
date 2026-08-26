@@ -236,6 +236,7 @@ export async function listEvents(
   const repositoryQuery: EventListQuery = {
     viewerId: userId,
     now,
+    q: query.q,
     visibility: query.visibility,
     mine: query.mine,
     when: query.when === "all" ? undefined : query.when,

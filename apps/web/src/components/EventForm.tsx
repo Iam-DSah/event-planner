@@ -6,9 +6,9 @@ import {
 } from "@event-planner/shared";
 
 import { ApiError, type Event } from "../api/client.js";
+import EventTime from "./EventTime.js";
 import {
   browserTimeZone,
-  formatInTimeZone,
   instantToWallTime,
   supportedTimeZones,
   wallTimeToInstant,
@@ -82,14 +82,13 @@ export default function EventForm({
    * back in the chosen zone. In the normal case it reassures; in the gap case
    * the user sees the time change and can react.
    */
-  let preview: string | null = null;
+  let previewInstant: string | null = null;
 
   if (form.startsAt) {
     try {
-      const instant = wallTimeToInstant(form.startsAt, form.timezone);
-      preview = `${formatInTimeZone(instant, form.timezone)} (${form.timezone})`;
+      previewInstant = wallTimeToInstant(form.startsAt, form.timezone);
     } catch {
-      preview = null;
+      previewInstant = null;
     }
   }
 
@@ -264,7 +263,16 @@ export default function EventForm({
           <p id="startsAt-error">{fieldErrors.startsAt}</p>
         )}
 
-        {preview && <p id="startsAt-preview">Saves as {preview}</p>}
+        {previewInstant && (
+          <p id="startsAt-preview">
+            {/* The SAME component the list and detail pages use, so the
+              organiser is shown exactly what a reader will be shown — and,
+              when the venue is not her own zone, what it means locally. The
+              suppression rule comes free: pick your own zone and there is one
+              reading, not two. */}
+            Saves as <EventTime iso={previewInstant} timeZone={form.timezone} />
+          </p>
+        )}
       </div>
       <div>
         <label htmlFor="endsAt">Ends (optional)</label>

@@ -32,7 +32,9 @@ const positiveIntegerStringSchema = z
 const MAX_OFFSET = 100_000;
 const MAX_TAGS = 20;
 
-const eventListSortSchema = z.enum(["startsAt", "createdAt"]);
+// "relevance" is only meaningful alongside `q` — enforced in the superRefine
+// below rather than by a separate enum, so there is one list of legal values.
+const eventListSortSchema = z.enum(["startsAt", "createdAt", "relevance"]);
 
 const eventListOrderSchema = z.enum(["asc", "desc"]);
 
@@ -86,6 +88,11 @@ export const eventListQuerySchema = z
         message: `A maximum of ${MAX_TAGS} unique tags may be provided`,
       }),
 
+    // The user's literal text. Sanitising it into MySQL BOOLEAN MODE syntax is
+    // the API's job (lib/searchQuery.ts) — keeping the raw words here is what
+    // makes ?q=music a readable, shareable URL.
+    q: z.string().trim().min(1, "Search must not be empty").max(100).optional(),
+
     visibility: z.enum(["public", "private"]).optional(),
 
     // A query-string boolean, spelled as an enum rather than a coercion so
@@ -99,21 +106,47 @@ export const eventListQuerySchema = z
 
     when: z.enum(["upcoming", "past", "all"]).default("upcoming"),
 
-    sort: eventListSortSchema.default("startsAt"),
+    // No .default() on either: what the default SHOULD be depends on whether
+    // `q` is present, which is not knowable field-by-field. Both are resolved
+    // in the transform below.
+    sort: eventListSortSchema.optional(),
 
-    order: eventListOrderSchema.default("asc"),
+    order: eventListOrderSchema.optional(),
   })
-  .transform((query) => ({
-    page: query.page,
-    limit: query.limit,
-    tags: query.tag,
-    visibility: query.visibility,
-    mine: query.mine,
-    when: query.when,
-    sort: query.sort,
-    order: query.order,
-  }))
+  .transform((query) => {
+    // Searching implies wanting the best matches first. Leaving the default at
+    // startsAt would answer "which matching event is soonest", which is a
+    // different and much rarer question — and D022 measured that date-ordering
+    // a FULLTEXT result is where the cost goes: 66ms against 4.2ms for the
+    // same rows ordered by relevance.
+    const sort =
+      query.sort ?? (query.q === undefined ? "startsAt" : "relevance");
+
+    return {
+      page: query.page,
+      limit: query.limit,
+      q: query.q,
+      tags: query.tag,
+      visibility: query.visibility,
+      mine: query.mine,
+      when: query.when,
+      sort,
+      // Ascending relevance means worst-match-first, which nobody wants.
+      order: query.order ?? (sort === "relevance" ? "desc" : "asc"),
+    };
+  })
   .superRefine((data, ctx) => {
+    // There is nothing to rank without a query, so this is a 400 rather than a
+    // silent fallback to date order — the same treatment any other impossible
+    // sort value gets.
+    if (data.sort === "relevance" && data.q === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["sort"],
+        message: "sort=relevance requires a search query",
+      });
+    }
+
     const offset = (data.page - 1) * data.limit;
 
     if (offset > MAX_OFFSET) {

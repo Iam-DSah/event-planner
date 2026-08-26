@@ -237,6 +237,7 @@ export async function listEvents(
     viewerId: userId,
     now,
     visibility: query.visibility,
+    mine: query.mine,
     when: query.when === "all" ? undefined : query.when,
     tags: query.tags,
     sort: query.sort,

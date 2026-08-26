@@ -8,7 +8,7 @@ import {
   type Event,
   type Pagination,
 } from "../api/client.js";
-import { formatInTimeZone } from "../lib/datetime.js";
+import EventTime from "../components/EventTime.js";
 
 /**
  * The URL is the single source of truth for this page — there is no useState
@@ -172,6 +172,12 @@ export default function EventsPage() {
       next.delete("visibility");
     }
 
+    if (data.get("mine") === "true") {
+      next.set("mine", "true");
+    } else {
+      next.delete("mine");
+    }
+
     for (const tag of String(data.get("tags") ?? "").split(",")) {
       const trimmed = tag.trim();
 
@@ -222,6 +228,20 @@ export default function EventsPage() {
         </div>
 
         <div>
+          {/* A checkbox contributes to FormData ONLY when checked, so an
+            unchecked box is simply an absent key — which is exactly the
+            "no filter" case, with no false/"off" value to special-case. */}
+          <input
+            id="mine"
+            name="mine"
+            type="checkbox"
+            value="true"
+            defaultChecked={params?.mine ?? false}
+          />{" "}
+          <label htmlFor="mine">Only events I created</label>
+        </div>
+
+        <div>
           <label htmlFor="tags">Tags</label>
 
           <input
@@ -252,12 +272,12 @@ export default function EventsPage() {
               <Link to={`/events/${event.id}`}>{event.title}</Link>
             </h2>
 
-            {/* The event's own timezone, not the viewer's — starts_at is a
-              UTC instant and `timezone` is the venue's zone (D004). */}
+            {/* Venue time always; the viewer's local reading only when it
+              differs. starts_at is a UTC instant and `timezone` is the venue's
+              zone (D004). */}
             <p>
               <strong>Starts:</strong>{" "}
-              {formatInTimeZone(event.startsAt, event.timezone)} (
-              {event.timezone})
+              <EventTime iso={event.startsAt} timeZone={event.timezone} />
             </p>
 
             <p>

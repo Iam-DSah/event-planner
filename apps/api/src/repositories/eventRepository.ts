@@ -147,6 +147,7 @@ export interface EventListWhereFilters {
   visibility?: "public" | "private";
   when?: "upcoming" | "past";
   tags: string[];
+  mine: boolean;
 }
 
 export interface EventListQuery extends EventListWhereFilters {
@@ -165,9 +166,19 @@ function applyEventListFilters(
   query: Knex.QueryBuilder,
   filters: EventListWhereFilters,
 ): Knex.QueryBuilder {
+  // The ownership clause is UNCONDITIONAL and grouped. Grouped, because a bare
+  // OR would swallow every AND below it and hand back the whole table;
+  // unconditional, so that no later filter — including `mine` — can be the
+  // reason it was skipped. When mine is set this makes the predicate
+  // (public OR creator = me) AND creator = me, which is redundant but cannot
+  // be wrong; narrowing it would trade a safety invariant for nothing.
   query.where(function () {
     this.where("visibility", "public").orWhere("creator_id", filters.viewerId);
   });
+
+  if (filters.mine) {
+    query.where("creator_id", filters.viewerId);
+  }
 
   if (filters.visibility !== undefined) {
     query.where("visibility", filters.visibility);

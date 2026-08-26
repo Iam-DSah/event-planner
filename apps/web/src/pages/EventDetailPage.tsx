@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError, deleteEvent, getEvent, type Event } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
-import { formatInTimeZone } from "../lib/datetime.js";
+import EventTime from "../components/EventTime.js";
 
 /**
  * The API deliberately answers 404 for BOTH "no such event" and "a private
@@ -152,15 +152,14 @@ export default function EventDetailPage() {
           UTC instant and `timezone` is the venue's zone (D004); toLocaleString
           would answer "when is this for me?", which is not the question. */}
         <dd>
-          {formatInTimeZone(event.startsAt, event.timezone)} ({event.timezone})
+          <EventTime iso={event.startsAt} timeZone={event.timezone} />
         </dd>
 
         {event.endsAt && (
           <>
             <dt>Ends</dt>
             <dd>
-              {formatInTimeZone(event.endsAt, event.timezone)} ({event.timezone}
-              )
+              <EventTime iso={event.endsAt} timeZone={event.timezone} />
             </dd>
           </>
         )}
@@ -195,6 +194,7 @@ export default function EventDetailPage() {
 
       {isOwner && (
         <p>
+          <Link to={`/events/${event.id}/edit`}>Edit event</Link>{" "}
           <button type="button" onClick={handleDelete} disabled={deleting}>
             {deleting ? "Deleting..." : "Delete event"}
           </button>

@@ -1,3 +1,5 @@
+import type { CreateEventInput } from "@event-planner/shared";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/v1";
 
@@ -248,6 +250,7 @@ export interface EventListParams {
   limit?: number;
   tags?: string[];
   visibility?: "public" | "private";
+  mine?: boolean;
   when?: "upcoming" | "past" | "all";
   sort?: "startsAt" | "createdAt";
   order?: "asc" | "desc";
@@ -271,6 +274,13 @@ export async function listEvents(
   set("page", params.page);
   set("limit", params.limit);
   set("visibility", params.visibility);
+
+  // Only when true. `set` would otherwise append "mine=false", which parses
+  // to the same result but puts a default into every shared link — the same
+  // reason page 1 is written as /events rather than /events?page=1.
+  if (params.mine) {
+    query.set("mine", "true");
+  }
   set("when", params.when);
   set("sort", params.sort);
   set("order", params.order);
@@ -311,4 +321,39 @@ export async function deleteEvent(id: string): Promise<void> {
   await request<void>(`/events/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+/**
+ * Both take the FULL field set, and both are validated by the caller against
+ * `createEventSchema` before they are sent.
+ *
+ * That the PATCH also sends everything is deliberate: `updateEventSchema` is
+ * `.partial()`, so it accepts the complete object just as happily as a subset,
+ * and sending the whole form removes the dirty-tracking a "send only what
+ * changed" design would need. Accepted cost: two tabs editing one event, the
+ * later save wins on every field rather than only on the fields it touched.
+ * Only the creator can edit, so that is one person in two tabs.
+ */
+export async function createEvent(input: CreateEventInput): Promise<Event> {
+  const response = await request<{ event: Event }>("/events", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+  return response.event;
+}
+
+export async function updateEvent(
+  id: string,
+  input: CreateEventInput,
+): Promise<Event> {
+  const response = await request<{ event: Event }>(
+    `/events/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+
+  return response.event;
 }

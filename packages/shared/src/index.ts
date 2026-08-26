@@ -88,6 +88,15 @@ export const eventListQuerySchema = z
 
     visibility: z.enum(["public", "private"]).optional(),
 
+    // A query-string boolean, spelled as an enum rather than a coercion so
+    // that `?mine=yes` is a 400 instead of quietly meaning false — the same
+    // treatment `sort` and `order` already get. Defaulting to "false" keeps a
+    // bare /events unchanged.
+    mine: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+
     when: z.enum(["upcoming", "past", "all"]).default("upcoming"),
 
     sort: eventListSortSchema.default("startsAt"),
@@ -99,6 +108,7 @@ export const eventListQuerySchema = z
     limit: query.limit,
     tags: query.tag,
     visibility: query.visibility,
+    mine: query.mine,
     when: query.when,
     sort: query.sort,
     order: query.order,

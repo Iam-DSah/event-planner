@@ -1,17 +1,17 @@
 import { FormEvent, useState } from "react";
-import { useLocation, useNavigate, type Location } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { loginSchema } from "@event-planner/shared";
 
 import { ApiError } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
 
 export default function LoginPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
 
-  // Set by ProtectedRoute when it bounced an anonymous visitor here.
-  const from = (location.state as { from?: Location } | null)?.from;
+  // This page does NOT navigate. It authenticates; PublicOnlyRoute owns where
+  // an authenticated user goes, including honouring the location ProtectedRoute
+  // carried here. Two components deciding that raced, and the guard won —
+  // silently dropping the requested URL.
 
   const [form, setForm] = useState({
     email: "",
@@ -51,9 +51,6 @@ export default function LoginPage() {
 
     try {
       await login(result.data.email, result.data.password);
-      navigate(from ? from.pathname + from.search : "/events", {
-        replace: true,
-      });
     } catch (error) {
       if (error instanceof ApiError) {
         const errors: Record<string, string> = {};
@@ -144,6 +141,10 @@ export default function LoginPage() {
           {submitting ? "Logging in..." : "Log in"}
         </button>
       </form>
+
+      <p>
+        No account? <Link to="/register">Sign up</Link>
+      </p>
     </main>
   );
 }

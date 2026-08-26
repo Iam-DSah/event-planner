@@ -1,12 +1,13 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { registerSchema } from "@event-planner/shared";
 
 import { ApiError } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
 
 export default function RegisterPage() {
-  const navigate = useNavigate();
+  // This page does NOT navigate. It registers; PublicOnlyRoute owns where an
+  // authenticated user goes. Same rule as LoginPage.
   const { register } = useAuth();
 
   const [form, setForm] = useState({
@@ -48,8 +49,6 @@ export default function RegisterPage() {
 
     try {
       await register(result.data.name, result.data.email, result.data.password);
-
-      navigate("/events");
     } catch (error) {
       if (error instanceof ApiError) {
         const errors: Record<string, string> = {};
@@ -161,6 +160,10 @@ export default function RegisterPage() {
           {submitting ? "Creating account..." : "Register"}
         </button>
       </form>
+
+      <p>
+        Already have an account? <Link to="/login">Log in</Link>
+      </p>
     </main>
   );
 }

@@ -2,20 +2,31 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 
 import { useAuth } from "./auth/AuthContext.js";
 import ProtectedRoute from "./components/ProtectedRoute.js";
+import PublicOnlyRoute from "./components/PublicOnlyRoute.js";
 import EventsPage from "./pages/EventsPage.js";
 import LoginPage from "./pages/LoginPage.js";
 import RegisterPage from "./pages/RegisterPage.js";
 
 /**
- * Renders nothing until the boot /me has answered. Showing a logged-out header
+ * Renders nothing while the boot /me is still in flight — a logged-out header
  * during "loading" is the same flash the three-state model exists to avoid,
- * just in the chrome instead of the page.
+ * just in the chrome instead of the page body. Once the answer arrives, BOTH
+ * outcomes get chrome: an anonymous visitor needs a way to reach sign-up, and
+ * /register is otherwise only reachable by typing the URL.
  */
 function Header() {
   const { status, user, logout } = useAuth();
 
-  if (status !== "authenticated") {
+  if (status === "loading") {
     return null;
+  }
+
+  if (status === "anonymous") {
+    return (
+      <header>
+        <Link to="/login">Log in</Link> <Link to="/register">Sign up</Link>
+      </header>
+    );
   }
 
   return (
@@ -36,8 +47,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/events" replace />} />
 
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route element={<PublicOnlyRoute />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+        </Route>
 
         {/* A layout route: ProtectedRoute renders <Outlet />, so every child
           below is gated by one guard rather than each page checking auth. */}

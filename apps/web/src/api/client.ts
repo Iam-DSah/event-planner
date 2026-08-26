@@ -219,3 +219,79 @@ export async function logout(): Promise<void> {
 export async function getHealth(): Promise<{ status: string }> {
   return request<{ status: string }>("/health");
 }
+
+/**
+ * Dates arrive as ISO STRINGS, not Date objects — JSON has no date type, so
+ * the API's `Date` fields are serialised by JSON.stringify. Typing them as
+ * Date here would compile and then blow up on the first `.toLocaleString()`.
+ * Convert at the point of display.
+ */
+export interface Event {
+  id: string;
+  creatorId: string;
+  title: string;
+  description: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  location: string;
+  visibility: "public" | "private";
+  timezone: string;
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+}
+
+export interface EventListParams {
+  page?: number;
+  limit?: number;
+  tags?: string[];
+  visibility?: "public" | "private";
+  when?: "upcoming" | "past" | "all";
+  sort?: "startsAt" | "createdAt";
+  order?: "asc" | "desc";
+}
+
+export async function listEvents(
+  params: EventListParams = {},
+): Promise<{ events: Event[]; pagination: Pagination }> {
+  const query = new URLSearchParams();
+
+  // Empty values are OMITTED, never appended blank. The API rejects `?tag=`
+  // and `?page=` with 400 VALIDATION_ERROR rather than reading them as "no
+  // filter" — deliberate on the server side, so a form that serialises every
+  // input unconditionally gets a validation error instead of a full list.
+  const set = (key: string, value: string | number | undefined) => {
+    if (value !== undefined && String(value) !== "") {
+      query.set(key, String(value));
+    }
+  };
+
+  set("page", params.page);
+  set("limit", params.limit);
+  set("visibility", params.visibility);
+  set("when", params.when);
+  set("sort", params.sort);
+  set("order", params.order);
+
+  // append, not set: it REPEATS the key (?tag=a&tag=b), which is the only
+  // array form Express 5 understands. Its default query parser is `simple`,
+  // not `qs`, so `?tag[]=a` arrives as a key literally named "tag[]" and the
+  // filter silently does nothing — a 200 with an unfiltered result set.
+  for (const tag of params.tags ?? []) {
+    if (tag.trim() !== "") {
+      query.append("tag", tag);
+    }
+  }
+
+  const suffix = query.toString();
+
+  return request<{ events: Event[]; pagination: Pagination }>(
+    suffix ? `/events?${suffix}` : "/events",
+  );
+}

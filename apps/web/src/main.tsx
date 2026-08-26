@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.js";
+import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext.js";
 
 /**
@@ -17,9 +18,16 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    {/* Router OUTSIDE the provider: anything auth-aware that needs to
+        navigate (a redirect after login, a guard on a protected route) has
+        to sit inside a Router to use its hooks. The reverse nesting compiles
+        and then throws "useNavigate() may be used only in the context of a
+        <Router>" the first time it is needed. */}
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
   </StrictMode>,
 );
 

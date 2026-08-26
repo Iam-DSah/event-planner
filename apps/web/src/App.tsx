@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext.js";
 import ProtectedRoute from "./components/ProtectedRoute.js";
 import PublicOnlyRoute from "./components/PublicOnlyRoute.js";
+import EventDetailPage from "./pages/EventDetailPage.js";
 import EventsPage from "./pages/EventsPage.js";
 import LoginPage from "./pages/LoginPage.js";
 import RegisterPage from "./pages/RegisterPage.js";
@@ -56,9 +57,27 @@ export default function App() {
           below is gated by one guard rather than each page checking auth. */}
         <Route element={<ProtectedRoute />}>
           <Route path="/events" element={<EventsPage />} />
+          <Route path="/events/:id" element={<EventDetailPage />} />
         </Route>
 
-        <Route path="*" element={<p>Not found.</p>} />
+        {/* An <h1> and a way out. As an inline <p> this was the only screen
+          in the app with no heading — a screen reader landed on a bare
+          sentence with no announced page title. Flagged by the route crawl
+          (day 7 wart 1c), not by any behavioural check. */}
+        <Route
+          path="*"
+          element={
+            <main>
+              <h1>Page not found</h1>
+
+              <p>That page does not exist.</p>
+
+              <p>
+                <Link to="/events">All events</Link>
+              </p>
+            </main>
+          }
+        />
       </Routes>
     </>
   );

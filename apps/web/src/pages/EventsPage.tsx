@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { eventListQuerySchema } from "@event-planner/shared";
 
 import {
@@ -8,6 +8,7 @@ import {
   type Event,
   type Pagination,
 } from "../api/client.js";
+import { formatInTimeZone } from "../lib/datetime.js";
 
 /**
  * The URL is the single source of truth for this page — there is no useState
@@ -247,11 +248,16 @@ export default function EventsPage() {
       <section>
         {events.map((event) => (
           <article key={event.id}>
-            <h2>{event.title}</h2>
+            <h2>
+              <Link to={`/events/${event.id}`}>{event.title}</Link>
+            </h2>
 
+            {/* The event's own timezone, not the viewer's — starts_at is a
+              UTC instant and `timezone` is the venue's zone (D004). */}
             <p>
               <strong>Starts:</strong>{" "}
-              {new Date(event.startsAt).toLocaleString()}
+              {formatInTimeZone(event.startsAt, event.timezone)} (
+              {event.timezone})
             </p>
 
             <p>

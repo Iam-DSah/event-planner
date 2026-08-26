@@ -216,10 +216,6 @@ export async function logout(): Promise<void> {
   await request<void>("/auth/logout", { method: "POST" });
 }
 
-export async function getHealth(): Promise<{ status: string }> {
-  return request<{ status: string }>("/health");
-}
-
 /**
  * Dates arrive as ISO STRINGS, not Date objects — JSON has no date type, so
  * the API's `Date` fields are serialised by JSON.stringify. Typing them as
@@ -294,4 +290,25 @@ export async function listEvents(
   return request<{ events: Event[]; pagination: Pagination }>(
     suffix ? `/events?${suffix}` : "/events",
   );
+}
+
+/**
+ * encodeURIComponent, even though the API rejects any id that is not a
+ * positive integer: the id arrives from a URL parameter, so an unencoded "/"
+ * would change which PATH is requested rather than producing the 400 the
+ * server is waiting to give. Encoding keeps a bad id a bad id.
+ */
+export async function getEvent(id: string): Promise<Event> {
+  const response = await request<{ event: Event }>(
+    `/events/${encodeURIComponent(id)}`,
+  );
+
+  return response.event;
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  // 204, no body — parseResponse already returns undefined for it.
+  await request<void>(`/events/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }

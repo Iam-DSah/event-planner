@@ -1,6 +1,6 @@
 import type { Knex } from "knex";
 
-import { toBooleanSearchQuery } from "../lib/searchQuery.js";
+import { LIKE_ESCAPE, likePattern, planSearch } from "../lib/searchQuery.js";
 import db from "../db/knex.js";
 import { findTagsForEvents } from "./tagRepository.js";
 import type { UpdateEventInput } from "@event-planner/shared";
@@ -206,7 +206,39 @@ function applyEventListFilters(
   // the row query leaves `total` counting unsearched rows — the pager reports
   // a number the list can never reach, and nothing errors.
   if (filters.q !== undefined) {
-    query.whereRaw(SEARCH_MATCH, [toBooleanSearchQuery(filters.q)]);
+    const plan = planSearch(filters.q);
+
+    // Indexable tokens still go through the FULLTEXT index even when the query
+    // ALSO contains a short one: "AI Conference" narrows on `Conference` here
+    // and filters the survivors with LIKE below, rather than abandoning the
+    // index for the whole query the way a mode switch would.
+    if (plan.fulltext !== "") {
+      query.whereRaw(SEARCH_MATCH, [plan.fulltext]);
+    }
+
+    // One grouped OR per short token, ANDed together — the same "every term
+    // required, any order" semantics as the FULLTEXT half, so which path a
+    // query takes is invisible in its results.
+    for (const token of plan.like) {
+      const pattern = likePattern(token);
+
+      query.where(function () {
+        this.whereRaw(`events.title LIKE ? ESCAPE '${LIKE_ESCAPE}'`, [pattern])
+          .orWhereRaw(`events.description LIKE ? ESCAPE '${LIKE_ESCAPE}'`, [
+            pattern,
+          ])
+          .orWhereRaw(`events.location LIKE ? ESCAPE '${LIKE_ESCAPE}'`, [
+            pattern,
+          ]);
+      });
+    }
+
+    // A query of pure punctuation leaves nothing to match on. This used to be
+    // free — AGAINST('') returns no rows — but with the plan split, adding no
+    // predicate at all would return EVERYTHING to someone who searched.
+    if (plan.fulltext === "" && plan.like.length === 0) {
+      query.whereRaw("1 = 0");
+    }
   }
 
   if (filters.visibility !== undefined) {
@@ -245,9 +277,16 @@ export async function findEvents(
     // search text stays a bound parameter.
     const direction = filters.order === "desc" ? "desc" : "asc";
 
-    query.orderByRaw(`${SEARCH_MATCH} ${direction}`, [
-      toBooleanSearchQuery(filters.q ?? ""),
-    ]);
+    const fulltext = planSearch(filters.q ?? "").fulltext;
+
+    if (fulltext === "") {
+      // Nothing indexable to rank — an all-LIKE query scores 0 for every row,
+      // so ordering by it would be ordering by a constant. Fall back to the
+      // list's normal ordering rather than pretending to rank.
+      query.orderBy("starts_at", filters.order);
+    } else {
+      query.orderByRaw(`${SEARCH_MATCH} ${direction}`, [fulltext]);
+    }
   } else {
     query.orderBy(sortColumns[filters.sort], filters.order);
   }

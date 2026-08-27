@@ -10,7 +10,8 @@
     "migrate:latest": "npm run knex -- migrate:latest",
     "migrate:rollback": "npm run knex -- migrate:rollback",
     "migrate:status": "npm run knex -- migrate:status",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --env-file-if-exists=../../.env --test src/**/*.test.ts"
   },
   "dependencies": {
     "@event-planner/shared": "*",

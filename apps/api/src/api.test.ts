@@ -230,6 +230,38 @@ describe("pagination.total is built by the same WHERE as the rows", () => {
   });
 });
 
+describe("the endsAt rule the schema cannot enforce", () => {
+  it("compares an incoming endsAt against the STORED startsAt", async () => {
+    const startsAt = "2026-12-25T18:00:00.000Z";
+    const event = await createEvent(ram, "Backwards", {
+      startsAt,
+      endsAt: "2026-12-25T20:00:00.000Z",
+    });
+
+    // Only endsAt is sent. The shared schema compares the two ends of the
+    // range, but it can only do that when BOTH arrive — here the value to
+    // compare against is in the database, which the schema cannot see. This
+    // is the reason the same rule exists a second time in eventService.
+    const res = await ram(`/events/${event.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ endsAt: "2026-12-25T09:00:00.000Z" }),
+    });
+    const body = await json<{
+      error: { code: string; fields: Record<string, string[]> };
+    }>(res);
+
+    assert.equal(res.status, 400);
+    assert.equal(body.error.code, "VALIDATION_ERROR");
+    // Byte-identical to the schema's wording. Two code paths enforce one rule,
+    // and the user must not be able to tell which one rejected them. A mutation
+    // audit found this copy untested: the browser cannot reach it, because the
+    // form validates with the full object before it ever calls the API.
+    assert.deepEqual(body.error.fields.endsAt, [
+      "The end time must be after the start time",
+    ]);
+  });
+});
+
 describe("timezone round trip", () => {
   it("returns the instant it was given, and the zone alongside it", async () => {
     const startsAt = "2026-12-25T03:30:00.000Z";

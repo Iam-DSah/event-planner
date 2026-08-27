@@ -4,18 +4,45 @@ import { z } from "zod";
 
 export const registerSchema = z
   .object({
-    name: z.string().trim().min(1).max(100),
-    email: z.string().trim().email().max(255),
-    password: z.string().min(8).max(128),
+    name: z
+      .string({ error: "Name is required" })
+      .trim()
+      .min(1, "Name is required")
+      .max(100, "Name must be 100 characters or fewer"),
+    email: z
+      .string({ error: "Email is required" })
+      .trim()
+      .min(1, "Email is required")
+      .email("Enter a valid email address")
+      .max(255, "Email must be 255 characters or fewer"),
+    password: z
+      .string({ error: "Password is required" })
+      // Same ordering trick as email above: an empty box should say
+      // "required", and only a non-empty-but-short one should quote the rule.
+      .min(1, "Password is required")
+      .min(8, "Password must be at least 8 characters")
+      .max(128, "Password must be 128 characters or fewer"),
   })
   .strict();
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+// Shape, not policy — the 8-character floor deliberately does NOT appear here.
+// A short guess must fail the same way a wrong one does; 400 where a real
+// attempt gets 401 replaces a timing oracle with a status-code one. So the
+// message says "required", never "too short".
 export const loginSchema = z
   .object({
-    email: z.string().trim().email().max(255),
-    password: z.string().min(1).max(128),
+    email: z
+      .string({ error: "Email is required" })
+      .trim()
+      .min(1, "Email is required")
+      .email("Enter a valid email address")
+      .max(255, "Email must be 255 characters or fewer"),
+    password: z
+      .string({ error: "Password is required" })
+      .min(1, "Password is required")
+      .max(128, "Password must be 128 characters or fewer"),
   })
   .strict();
 
@@ -32,8 +59,6 @@ const positiveIntegerStringSchema = z
 const MAX_OFFSET = 100_000;
 const MAX_TAGS = 20;
 
-// "relevance" is only meaningful alongside `q` — enforced in the superRefine
-// below rather than by a separate enum, so there is one list of legal values.
 const eventListSortSchema = z.enum(["startsAt", "createdAt", "relevance"]);
 
 const eventListOrderSchema = z.enum(["asc", "desc"]);
@@ -88,17 +113,13 @@ export const eventListQuerySchema = z
         message: `A maximum of ${MAX_TAGS} unique tags may be provided`,
       }),
 
-    // The user's literal text. Sanitising it into MySQL BOOLEAN MODE syntax is
+    // The user's literal text. Sanitizing it into MySQL BOOLEAN MODE syntax is
     // the API's job (lib/searchQuery.ts) — keeping the raw words here is what
     // makes ?q=music a readable, shareable URL.
     q: z.string().trim().min(1, "Search must not be empty").max(100).optional(),
 
     visibility: z.enum(["public", "private"]).optional(),
 
-    // A query-string boolean, spelled as an enum rather than a coercion so
-    // that `?mine=yes` is a 400 instead of quietly meaning false — the same
-    // treatment `sort` and `order` already get. Defaulting to "false" keeps a
-    // bare /events unchanged.
     mine: z
       .enum(["true", "false"])
       .default("false")
@@ -106,19 +127,11 @@ export const eventListQuerySchema = z
 
     when: z.enum(["upcoming", "past", "all"]).default("upcoming"),
 
-    // No .default() on either: what the default SHOULD be depends on whether
-    // `q` is present, which is not knowable field-by-field. Both are resolved
-    // in the transform below.
     sort: eventListSortSchema.optional(),
 
     order: eventListOrderSchema.optional(),
   })
   .transform((query) => {
-    // Searching implies wanting the best matches first. Leaving the default at
-    // startsAt would answer "which matching event is soonest", which is a
-    // different and much rarer question — and D022 measured that date-ordering
-    // a FULLTEXT result is where the cost goes: 66ms against 4.2ms for the
-    // same rows ordered by relevance.
     const sort =
       query.sort ?? (query.q === undefined ? "startsAt" : "relevance");
 
@@ -131,14 +144,10 @@ export const eventListQuerySchema = z
       mine: query.mine,
       when: query.when,
       sort,
-      // Ascending relevance means worst-match-first, which nobody wants.
       order: query.order ?? (sort === "relevance" ? "desc" : "asc"),
     };
   })
   .superRefine((data, ctx) => {
-    // There is nothing to rank without a query, so this is a 400 rather than a
-    // silent fallback to date order — the same treatment any other impossible
-    // sort value gets.
     if (data.sort === "relevance" && data.q === undefined) {
       ctx.addIssue({
         code: "custom",
@@ -161,13 +170,17 @@ export const eventListQuerySchema = z
 export type EventListQueryInput = z.infer<typeof eventListQuerySchema>;
 
 const eventFields = {
-  title: z.string().trim().min(1).max(200),
+  title: z
+    .string({ error: "Title is required" })
+    .trim()
+    .min(1, "Title is required")
+    .max(200, "Title must be 200 characters or fewer"),
 
   // Empty textarea value is treated as "no description".
   description: z
     .string()
     .trim()
-    .max(5_000)
+    .max(5_000, "Description must be 5000 characters or fewer")
     .nullable()
     .optional()
     .transform((value) => {
@@ -178,31 +191,48 @@ const eventFields = {
       return value;
     }),
 
-  startsAt: z.string().datetime({
+  startsAt: z.string({ error: "Start date and time is required" }).datetime({
     offset: true,
+    message: "Enter a valid start date and time",
   }),
 
   endsAt: z
     .string()
     .datetime({
       offset: true,
+      message: "Enter a valid end date and time",
     })
     .nullable()
     .optional(),
 
-  location: z.string().trim().min(1).max(255),
+  location: z
+    .string({ error: "Location is required" })
+    .trim()
+    .min(1, "Location is required")
+    .max(255, "Location must be 255 characters or fewer"),
 
   visibility: z.enum(["public", "private"]).optional(),
 
-  timezone: z.string().min(1),
+  timezone: z
+    .string({ error: "Timezone is required" })
+    .min(1, "Timezone is required"),
 
-  tags: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
+  tags: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, "A tag cannot be empty")
+        .max(50, "A tag must be 50 characters or fewer"),
+    )
+    .max(20, "You can add up to 20 tags")
+    .optional(),
 };
 
 const eventBaseSchema = z.object(eventFields).strict();
 
 function isValidIanaTimezone(value: string): boolean {
-  // Intl is used only to determine whether the runtime recognises
+  // Intl is used only to determine whether the runtime recognizes
   // the timezone. We deliberately do not compare its canonical
   // output because ICU versions can canonicalize zone names
   // differently.
@@ -243,7 +273,7 @@ function addEventTimeAndTimezoneValidation(
     ctx.addIssue({
       code: "custom",
       path: ["endsAt"],
-      message: "endsAt must be after startsAt",
+      message: "The end time must be after the start time",
     });
   }
 
@@ -251,7 +281,7 @@ function addEventTimeAndTimezoneValidation(
     ctx.addIssue({
       code: "custom",
       path: ["timezone"],
-      message: "timezone must be a valid IANA timezone",
+      message: "Choose a valid timezone",
     });
   }
 }
@@ -271,7 +301,7 @@ export const updateEventSchema = eventBaseSchema
       ctx.addIssue({
         code: "custom",
         path: [],
-        message: "At least one field must be provided",
+        message: "Change at least one field before saving",
       });
     }
 
@@ -285,7 +315,7 @@ export const updateEventSchema = eventBaseSchema
       ctx.addIssue({
         code: "custom",
         path: ["endsAt"],
-        message: "endsAt must be after startsAt",
+        message: "The end time must be after the start time",
       });
     }
 
@@ -294,7 +324,7 @@ export const updateEventSchema = eventBaseSchema
       ctx.addIssue({
         code: "custom",
         path: ["timezone"],
-        message: "timezone must be a valid IANA timezone",
+        message: "Choose a valid timezone",
       });
     }
   });

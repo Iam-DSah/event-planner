@@ -52,10 +52,7 @@ async function runTransactionWithDeadlockRetry<T>(
         throw error;
       }
 
-      // Full jitter, growing with the attempt. Without a delay two
-      // transactions that deadlocked together retry at the same instant and
-      // can collide again, so more attempts alone would not help — separating
-      // them in time is what breaks the cycle.
+      //separating them in time is what breaks the cycle.
       const backoffMs = Math.random() * 20 * attempt;
 
       await new Promise((resolve) => setTimeout(resolve, backoffMs));
@@ -160,9 +157,6 @@ export async function updateEvent(
   userId: string,
 ): Promise<EventWithTags> {
   return runTransactionWithDeadlockRetry(async (trx) => {
-    // Read, decide and write inside ONE transaction (D014). Outside it, the row
-    // could be deleted between the guard and the update — and on a retry the
-    // guard would not re-run, so attempt 2 would write on attempt 1's decision.
     const event = await getEventForMutation(id, userId, trx);
 
     const nextStartsAt =
@@ -176,7 +170,10 @@ export async function updateEvent(
         : event.endsAt;
 
     if (nextEndsAt !== null && nextEndsAt <= nextStartsAt) {
-      throw new EventValidationError("endsAt must be after startsAt", "endsAt");
+      throw new EventValidationError(
+        "The end time must be after the start time",
+        "endsAt",
+      );
     }
 
     const updatedEvent = await updateEventRepository(id, input, trx);
@@ -196,11 +193,6 @@ export async function updateEvent(
       trx,
     );
 
-    // Supplying `tags` always counts as a change, so `updated_at` moves even
-    // when no `events` column did — knex skips an empty update, so MySQL's
-    // ON UPDATE CURRENT_TIMESTAMP(3) would never fire. When a column *did*
-    // change this rewrites the same instant, which is deliberate: cheaper than
-    // working out whether the column update already fired it.
     await touchEvent(id, trx);
 
     // Re-read: `updatedEvent` was fetched before touchEvent moved updated_at,

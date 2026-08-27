@@ -240,8 +240,7 @@ describe("the endsAt rule the schema cannot enforce", () => {
 
     // Only endsAt is sent. The shared schema compares the two ends of the
     // range, but it can only do that when BOTH arrive — here the value to
-    // compare against is in the database, which the schema cannot see. This
-    // is the reason the same rule exists a second time in eventService.
+    // compare against is in the database, which the schema cannot see.
     const res = await ram(`/events/${event.id}`, {
       method: "PATCH",
       body: JSON.stringify({ endsAt: "2026-12-25T09:00:00.000Z" }),
@@ -252,10 +251,6 @@ describe("the endsAt rule the schema cannot enforce", () => {
 
     assert.equal(res.status, 400);
     assert.equal(body.error.code, "VALIDATION_ERROR");
-    // Byte-identical to the schema's wording. Two code paths enforce one rule,
-    // and the user must not be able to tell which one rejected them. A mutation
-    // audit found this copy untested: the browser cannot reach it, because the
-    // form validates with the full object before it ever calls the API.
     assert.deepEqual(body.error.fields.endsAt, [
       "The end time must be after the start time",
     ]);

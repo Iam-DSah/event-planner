@@ -342,8 +342,8 @@ Built beyond the required core: refresh-token rotation with reuse detection,
 full-text search, sorting, server-side filtering, Knex migrations, and an
 automated test suite.
 
-Deliberately not built: two-factor authentication, email verification and RSVP
-all on the brief's optional list. With a fixed deadline,depth on the required features
+Deliberately not built: two-factor authentication, email verification, RSVP and Swagger/OpenAPI
+all on the brief's optional list. With a fixed deadline, depth on the required features
 beat breadth across optional ones, because it is the subtle features that fail quietly.
 
 Account deletion is also absent. It is not a missing CRUD endpoint:

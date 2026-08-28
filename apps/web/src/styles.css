@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+@source "../";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "EB Garamond", ui-serif, Georgia, serif;
+
+  --color-paper: #fcfbf9;
+  --color-surface: #ffffff;
+
+  --color-ink: #14130f;
+  --color-ink-muted: #6e6a61;
+
+  --color-rule: #e6e2d9;
+
+  --color-accent: #14493c;
+  --color-accent-hover: #0d3529;
+  --color-accent-soft: #e9f0ec;
+
+  --color-danger: #a3221b;
+  --color-danger-soft: #fdf1ef;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-color: var(--color-rule) transparent;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: #fff;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--color-accent);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-accent);
+  }
+
+  ::placeholder {
+    color: var(--color-ink-muted);
+    opacity: 1;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  a {
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: from-font;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-rule);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+}
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-5xl px-5 sm:px-8;
+  }
+
+  .page-body {
+    @apply mx-auto w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-14;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+
+  .input {
+    @apply w-full rounded-md border border-rule bg-surface px-3 py-2.5 text-ink
+      transition-colors duration-150
+      hover:border-ink-muted
+      focus:border-accent focus:outline-none
+      disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .input[aria-invalid="true"] {
+    @apply border-danger;
+  }
+
+  .select {
+    @apply appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6a61' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.7rem center;
+    background-size: 1.05rem;
+  }
+
+  .field-error {
+    @apply mt-1.5 text-sm text-danger;
+  }
+
+  .field-hint {
+    @apply mt-1.5 text-sm text-ink-muted;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md
+      px-4 py-2.5 text-sm font-medium
+      transition-[background-color,border-color,color,translate] duration-150
+      active:translate-y-px
+      disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-white hover:bg-accent-hover;
+  }
+
+  .btn-quiet {
+    @apply border border-rule bg-surface text-ink hover:border-ink-muted;
+  }
+
+  .btn-danger {
+    @apply border border-rule bg-surface text-danger hover:border-danger hover:bg-danger-soft;
+  }
+
+  .alert {
+    @apply rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger;
+  }
+
+  .panel {
+    @apply rounded-lg border border-rule bg-surface;
+  }
+
+  .measure {
+    @apply max-w-[68ch];
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.settle {
+  animation: settle 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--row, 0) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settle {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

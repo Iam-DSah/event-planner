@@ -81,19 +81,33 @@ export default function RegisterPage() {
   }
 
   return (
-    <main>
-      <h1>Create account</h1>
+    <main className="page-body flex min-h-[calc(100dvh-12rem)] max-w-md flex-col justify-center">
+      <h1 className="font-display text-4xl leading-tight text-ink">
+        Create account
+      </h1>
 
-      {formError && <p role="alert">{formError}</p>}
+      <p className="mt-2 text-ink-muted">
+        You need an account to create events and to see private ones.
+      </p>
 
-      <form onSubmit={handleSubmit} noValidate>
+      {formError && (
+        <p role="alert" className="alert mt-6">
+          {formError}
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-5">
         <div>
-          <label htmlFor="name">Name</label>
+          <label htmlFor="name" className="label">
+            Name
+          </label>
 
           <input
             id="name"
             name="name"
             type="text"
+            autoComplete="name"
+            className="input"
             value={form.name}
             onChange={(event) =>
               setForm((current) => ({
@@ -105,16 +119,24 @@ export default function RegisterPage() {
             aria-describedby={fieldErrors.name ? "name-error" : undefined}
           />
 
-          {fieldErrors.name && <p id="name-error">{fieldErrors.name}</p>}
+          {fieldErrors.name && (
+            <p id="name-error" className="field-error">
+              {fieldErrors.name}
+            </p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email" className="label">
+            Email
+          </label>
 
           <input
             id="email"
             name="email"
             type="email"
+            autoComplete="email"
+            className="input"
             value={form.email}
             onChange={(event) =>
               setForm((current) => ({
@@ -126,16 +148,24 @@ export default function RegisterPage() {
             aria-describedby={fieldErrors.email ? "email-error" : undefined}
           />
 
-          {fieldErrors.email && <p id="email-error">{fieldErrors.email}</p>}
+          {fieldErrors.email && (
+            <p id="email-error" className="field-error">
+              {fieldErrors.email}
+            </p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password" className="label">
+            Password
+          </label>
 
           <input
             id="password"
             name="password"
             type="password"
+            autoComplete="new-password"
+            className="input"
             value={form.password}
             onChange={(event) =>
               setForm((current) => ({
@@ -145,22 +175,35 @@ export default function RegisterPage() {
             }
             aria-invalid={Boolean(fieldErrors.password)}
             aria-describedby={
-              fieldErrors.password ? "password-error" : undefined
+              fieldErrors.password ? "password-error" : "password-requirement"
             }
           />
 
-          {fieldErrors.password && (
-            <p id="password-error">{fieldErrors.password}</p>
+          {fieldErrors.password ? (
+            <p id="password-error" className="field-error">
+              {fieldErrors.password}
+            </p>
+          ) : (
+            <p id="password-requirement" className="field-hint">
+              At least 8 characters.
+            </p>
           )}
         </div>
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Creating account..." : "Register"}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="btn btn-primary w-full"
+        >
+          {submitting ? "Creating account…" : "Create account"}
         </button>
       </form>
 
-      <p>
-        Already have an account? <Link to="/login">Log in</Link>
+      <p className="mt-6 text-sm text-ink-muted">
+        Already have an account?{" "}
+        <Link to="/login" className="font-medium text-accent">
+          Log in
+        </Link>
       </p>
     </main>
   );

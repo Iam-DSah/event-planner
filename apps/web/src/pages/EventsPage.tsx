@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { eventListQuerySchema } from "@event-planner/shared";
 
@@ -9,6 +15,7 @@ import {
   type Pagination,
 } from "../api/client.js";
 import EventTime from "../components/EventTime.js";
+import { ChevronLeft, ChevronRight, Plus } from "../components/Icon.js";
 
 function parseListQuery(search: string) {
   const searchParams = new URLSearchParams(search);
@@ -141,6 +148,10 @@ export default function EventsPage() {
       next.set("q", q);
     } else {
       next.delete("q");
+
+      if (next.get("sort") === "relevance") {
+        next.delete("sort");
+      }
     }
 
     if (data.get("mine") === "true") {
@@ -160,18 +171,33 @@ export default function EventsPage() {
     setSearchParams(next);
   }
 
+  const filtered = Boolean(
+    params &&
+    (params.q ||
+      params.tags.length > 0 ||
+      params.mine ||
+      params.visibility ||
+      params.when !== "upcoming"),
+  );
+
   return (
-    <main>
-      <h1>Events</h1>
+    <main className="page-body">
+      <h1 className="font-display text-4xl leading-tight text-ink">Events</h1>
 
       {/* Uncontrolled, and keyed on the query string. A controlled draft would
         need an effect to re-seed itself when the back button changes the URL,
         which is the two-sources-of-truth bug this page exists to avoid. An
         uncontrolled input ignores a changed defaultValue once mounted, so the
         key remounts the form instead — one line rather than an effect. */}
-      <form key={search} onSubmit={applyFilters}>
-        <div>
-          <label htmlFor="search">Search</label>
+      <form
+        key={search}
+        onSubmit={applyFilters}
+        className="panel mt-6 grid gap-4 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4"
+      >
+        <div className="lg:col-span-2">
+          <label htmlFor="search" className="label">
+            Search
+          </label>
 
           {/* type="search" for the native clear button and correct mobile
             keyboard. Enter submits because it is a text input inside a form —
@@ -182,17 +208,21 @@ export default function EventsPage() {
             id="search"
             name="q"
             type="search"
+            className="input"
             placeholder="Title, description or location"
             defaultValue={params?.q ?? ""}
           />
         </div>
 
         <div>
-          <label htmlFor="when">When</label>
+          <label htmlFor="when" className="label">
+            When
+          </label>
 
           <select
             id="when"
             name="when"
+            className="input select"
             defaultValue={params?.when ?? "upcoming"}
           >
             <option value="upcoming">Upcoming</option>
@@ -202,11 +232,14 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label htmlFor="visibility">Visibility</label>
+          <label htmlFor="visibility" className="label">
+            Visibility
+          </label>
 
           <select
             id="visibility"
             name="visibility"
+            className="input select"
             defaultValue={params?.visibility ?? ""}
           >
             <option value="">Any</option>
@@ -215,83 +248,151 @@ export default function EventsPage() {
           </select>
         </div>
 
-        <div>
-          {/* A checkbox contributes to FormData ONLY when checked, so an
-            unchecked box is simply an absent key, which is exactly the
-            "no filter" case, with no false/"off" value to special-case. */}
-          <input
-            id="mine"
-            name="mine"
-            type="checkbox"
-            value="true"
-            defaultChecked={params?.mine ?? false}
-          />{" "}
-          <label htmlFor="mine">Only events I created</label>
-        </div>
-
-        <div>
-          <label htmlFor="tags">Tags</label>
+        <div className="sm:col-span-2">
+          <label htmlFor="tags" className="label">
+            Tags
+          </label>
 
           <input
             id="tags"
             name="tags"
             type="text"
+            className="input"
             placeholder="Music, Conference"
             defaultValue={params?.tags.join(", ") ?? ""}
             aria-describedby="tags-hint"
           />
 
-          <p id="tags-hint">Separate multiple tags with commas.</p>
+          <p id="tags-hint" className="field-hint">
+            Separate multiple tags with commas.
+          </p>
         </div>
 
-        <button type="submit">Apply filters</button>
+        <div className="flex flex-wrap items-center justify-between gap-4 sm:col-span-2 lg:pt-7">
+          <div className="flex items-center gap-2">
+            {/* A checkbox contributes to FormData ONLY when checked, so an
+            unchecked box is simply an absent key, which is exactly the
+            "no filter" case, with no false/"off" value to special-case. */}
+            <input
+              id="mine"
+              name="mine"
+              type="checkbox"
+              value="true"
+              className="size-4 rounded border-rule"
+              defaultChecked={params?.mine ?? false}
+            />{" "}
+            <label htmlFor="mine" className="text-sm text-ink">
+              Only events I created
+            </label>
+          </div>
+
+          <button type="submit" className="btn btn-primary">
+            Apply filters
+          </button>
+        </div>
       </form>
 
-      {loading && <p>Loading events...</p>}
+      {error && (
+        <p role="alert" className="alert mt-8">
+          {error}
+        </p>
+      )}
 
-      {error && <p role="alert">{error}</p>}
+      {loading && events.length === 0 && (
+        <p role="status" className="mt-8 text-sm text-ink-muted">
+          Loading events…
+        </p>
+      )}
 
-      {!loading && !error && events.length === 0 && <p>No events found.</p>}
+      {!error && !loading && events.length === 0 && (
+        <div className="mt-16 text-center">
+          <h2 className="font-display text-2xl text-ink">
+            {filtered ? "No events match those filters" : "No events yet"}
+          </h2>
 
-      <section>
-        {events.map((event) => (
-          <article key={event.id}>
-            <h2>
-              <Link to={`/events/${event.id}`}>{event.title}</Link>
-            </h2>
+          <p className="mx-auto mt-2 max-w-sm text-ink-muted">
+            {filtered
+              ? "Try a broader search, or widen the date range to include past events."
+              : "The first event you create will appear here."}
+          </p>
 
-            {/* Venue time always; the viewer's local reading only when it
-              differs. starts_at is a UTC instant and `timezone` is the venue's
-              zone*/}
-            <p>
-              <strong>Starts:</strong>{" "}
-              <EventTime iso={event.startsAt} timeZone={event.timezone} />
-            </p>
+          <Link to="/events/new" className="btn btn-primary mt-6 no-underline">
+            <Plus />
+            New event
+          </Link>
+        </div>
+      )}
 
-            <p>
-              <strong>Location:</strong> {event.location}
-            </p>
+      {events.length > 0 && (
+        <ol
+          aria-busy={loading}
+          className={`mt-8 border-b border-rule transition-opacity duration-200 ${
+            loading ? "opacity-50" : "opacity-100"
+          }`}
+        >
+          {events.map((event, index) => (
+            <li
+              key={event.id}
+              className="settle border-t border-rule"
+              style={{ "--row": index } as CSSProperties}
+            >
+              <article className="grid gap-x-8 gap-y-3 py-6 sm:grid-cols-[10rem_1fr]">
+                {/* Venue time always; the viewer's local reading only when it
+                  differs. starts_at is a UTC instant and `timezone` is the
+                  venue's zone. */}
+                <EventTime
+                  iso={event.startsAt}
+                  timeZone={event.timezone}
+                  variant="stacked"
+                />
 
-            {event.tags.length > 0 && (
-              <p>
-                <strong>Tags:</strong> {event.tags.join(", ")}
-              </p>
-            )}
-          </article>
-        ))}
-      </section>
+                <div>
+                  <h2 className="font-display text-2xl leading-snug">
+                    <Link
+                      to={`/events/${event.id}`}
+                      className="text-ink no-underline hover:underline"
+                    >
+                      {event.title}
+                    </Link>
+                  </h2>
 
-      {pagination && params && (
-        <nav aria-label="Event pagination">
+                  <p className="mt-1 text-ink-muted">{event.location}</p>
+
+                  {event.tags.length > 0 && (
+                    <ul className="mt-3 flex flex-wrap gap-1.5">
+                      {event.tags.map((tag) => (
+                        <li
+                          key={tag}
+                          className="rounded-full border border-rule px-2.5 py-0.5 text-xs text-ink-muted"
+                        >
+                          {tag}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </article>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {pagination && params && events.length > 0 && (
+        <nav
+          aria-label="Event pagination"
+          className="mt-8 flex flex-wrap items-center justify-between gap-4"
+        >
           <button
             type="button"
             onClick={() => goToPage(params.page - 1)}
             disabled={params.page <= 1 || loading}
+            className="btn btn-quiet"
           >
+            <ChevronLeft />
             Previous
           </button>
 
-          <span>
+          <span className="tnum order-last w-full text-center text-sm text-ink-muted sm:order-none sm:w-auto">
             Page {params.page} of {totalPages}
             {" · "}
             {pagination.total} events
@@ -301,8 +402,10 @@ export default function EventsPage() {
             type="button"
             onClick={() => goToPage(params.page + 1)}
             disabled={loading || params.page >= totalPages}
+            className="btn btn-quiet"
           >
             Next
+            <ChevronRight />
           </button>
         </nav>
       )}

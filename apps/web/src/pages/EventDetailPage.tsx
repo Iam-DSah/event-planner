@@ -4,6 +4,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError, deleteEvent, getEvent, type Event } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
 import EventTime from "../components/EventTime.js";
+import { ArrowLeft } from "../components/Icon.js";
+import Loading from "../components/Loading.js";
 
 function describeError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -91,89 +93,136 @@ export default function EventDetailPage() {
   }
 
   if (loading) {
-    return (
-      <main>
-        <p>Loading event...</p>
-      </main>
-    );
+    return <Loading label="Loading event…" />;
   }
 
   if (error || !event) {
     return (
-      <main>
-        <h1>Event unavailable</h1>
+      <main className="page-body max-w-2xl">
+        <h1 className="font-display text-4xl leading-tight text-ink">
+          Event unavailable
+        </h1>
 
-        <p role="alert">{error ?? "Failed to load this event."}</p>
-
-        <p>
-          <Link to="/events">All events</Link>
+        <p role="alert" className="alert mt-6">
+          {error ?? "Failed to load this event."}
         </p>
+
+        <Link
+          to="/events"
+          className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-accent"
+        >
+          <ArrowLeft />
+          All events
+        </Link>
       </main>
     );
   }
 
   return (
-    <main>
-      <h1>{event.title}</h1>
+    <main className="page-body max-w-4xl">
+      <Link
+        to="/events"
+        className="inline-flex items-center gap-2 text-sm text-ink-muted no-underline hover:text-ink"
+      >
+        <ArrowLeft />
+        All events
+      </Link>
 
-      <dl>
-        <dt>Starts</dt>
-        {/* Rendered in the EVENT's timezone, not the viewer's. starts_at is a
-          UTC instant and `timezone` is the venue's zone (D004); toLocaleString
-          would answer "when is this for me?", which is not the question. */}
-        <dd>
-          <EventTime iso={event.startsAt} timeZone={event.timezone} />
-        </dd>
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+        <h1 className="font-display text-4xl leading-tight text-ink sm:text-5xl">
+          {event.title}
+        </h1>
+
+        {isOwner && (
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              to={`/events/${event.id}/edit`}
+              className="btn btn-quiet no-underline"
+            >
+              Edit event
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="btn btn-danger"
+            >
+              {deleting ? "Deleting…" : "Delete event"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <dl className="mt-8 border-t border-rule">
+        <div className="grid gap-1 border-b border-rule py-4 sm:grid-cols-[9rem_1fr] sm:gap-6">
+          <dt className="text-xs font-medium uppercase tracking-[0.12em] text-ink-muted">
+            Starts
+          </dt>
+          {/* Rendered in the EVENT's timezone, not the viewer's. starts_at is a
+            UTC instant and `timezone` is the venue's zone (D004); toLocaleString
+            would answer "when is this for me?", which is not the question. */}
+          <dd className="text-pretty text-ink">
+            <EventTime iso={event.startsAt} timeZone={event.timezone} />
+          </dd>
+        </div>
 
         {event.endsAt && (
-          <>
-            <dt>Ends</dt>
-            <dd>
+          <div className="grid gap-1 border-b border-rule py-4 sm:grid-cols-[9rem_1fr] sm:gap-6">
+            <dt className="text-xs font-medium uppercase tracking-[0.12em] text-ink-muted">
+              Ends
+            </dt>
+            <dd className="text-pretty text-ink">
               <EventTime iso={event.endsAt} timeZone={event.timezone} />
             </dd>
-          </>
+          </div>
         )}
 
-        <dt>Location</dt>
-        <dd>{event.location}</dd>
+        <div className="grid gap-1 border-b border-rule py-4 sm:grid-cols-[9rem_1fr] sm:gap-6">
+          <dt className="text-xs font-medium uppercase tracking-[0.12em] text-ink-muted">
+            Location
+          </dt>
+          <dd className="text-ink">{event.location}</dd>
+        </div>
 
-        <dt>Visibility</dt>
-        <dd>{event.visibility}</dd>
+        <div className="grid gap-1 border-b border-rule py-4 sm:grid-cols-[9rem_1fr] sm:gap-6">
+          <dt className="text-xs font-medium uppercase tracking-[0.12em] text-ink-muted">
+            Visibility
+          </dt>
+          <dd className="capitalize text-ink">{event.visibility}</dd>
+        </div>
 
         {event.tags.length > 0 && (
-          <>
-            <dt>Tags</dt>
+          <div className="grid gap-1 border-b border-rule py-4 sm:grid-cols-[9rem_1fr] sm:gap-6">
+            <dt className="text-xs font-medium uppercase tracking-[0.12em] text-ink-muted">
+              Tags
+            </dt>
             <dd>
               {/* Each tag links to the list filtered by it — the filter is in
                 the URL now (D024), so this is just a link, with no state to
                 hand over. */}
-              {event.tags.map((tag, index) => (
-                <span key={tag}>
-                  {index > 0 && ", "}
-                  <Link to={`/events?tag=${encodeURIComponent(tag)}`}>
-                    {tag}
-                  </Link>
-                </span>
-              ))}
+              <ul className="flex flex-wrap gap-1.5">
+                {event.tags.map((tag) => (
+                  <li key={tag}>
+                    <Link
+                      to={`/events?tag=${encodeURIComponent(tag)}`}
+                      className="inline-block rounded-full border border-rule px-2.5 py-0.5 text-sm text-ink-muted no-underline transition-colors hover:border-ink-muted hover:text-ink"
+                    >
+                      {tag}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </dd>
-          </>
+          </div>
         )}
       </dl>
 
-      {event.description && <p>{event.description}</p>}
-
-      {isOwner && (
-        <p>
-          <Link to={`/events/${event.id}/edit`}>Edit event</Link>{" "}
-          <button type="button" onClick={handleDelete} disabled={deleting}>
-            {deleting ? "Deleting..." : "Delete event"}
-          </button>
+      {event.description && (
+        <p className="measure mt-8 whitespace-pre-line text-ink">
+          {event.description}
         </p>
       )}
-
-      <p>
-        <Link to="/events">All events</Link>
-      </p>
     </main>
   );
 }

@@ -1,10 +1,9 @@
 # Prettier ignores node_modules on its own; everything here is additional.
 
 dist
+docs
 package-lock.json
 
-# Markdown is excluded on purpose. docs/ is hand-aligned working material —
-# the tables in decisions.md and flow.md are formatted for reading, and
-# Prettier reflows them into something worse. The README on day 9 is the
-# deliverable and gets the same treatment.
+# Markdown is excluded on purpose: its tables are hand-aligned for reading and
+# Prettier reflows them into something worse.
 *.md

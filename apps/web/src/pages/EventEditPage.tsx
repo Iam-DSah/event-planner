@@ -5,6 +5,8 @@ import type { CreateEventInput } from "@event-planner/shared";
 import { ApiError, getEvent, updateEvent, type Event } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
 import EventForm from "../components/EventForm.js";
+import { ArrowLeft } from "../components/Icon.js";
+import Loading from "../components/Loading.js";
 
 export default function EventEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -62,44 +64,58 @@ export default function EventEditPage() {
   }
 
   if (loading) {
-    return (
-      <main>
-        <p>Loading event...</p>
-      </main>
-    );
+    return <Loading label="Loading event…" />;
   }
 
   if (event && user && event.creatorId !== user.id) {
     return (
-      <main>
-        <h1>Cannot edit</h1>
+      <main className="page-body max-w-2xl">
+        <h1 className="font-display text-4xl leading-tight text-ink">
+          Cannot edit
+        </h1>
 
-        <p role="alert">Only the creator of an event can edit it.</p>
-
-        <p>
-          <Link to={`/events/${event.id}`}>Back to the event</Link>
+        <p role="alert" className="alert mt-6">
+          Only the creator of an event can edit it.
         </p>
+
+        <Link
+          to={`/events/${event.id}`}
+          className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-accent"
+        >
+          <ArrowLeft />
+          Back to the event
+        </Link>
       </main>
     );
   }
 
   if (error || !event) {
     return (
-      <main>
-        <h1>Event unavailable</h1>
+      <main className="page-body max-w-2xl">
+        <h1 className="font-display text-4xl leading-tight text-ink">
+          Event unavailable
+        </h1>
 
-        <p role="alert">{error ?? "Failed to load this event."}</p>
-
-        <p>
-          <Link to="/events">All events</Link>
+        <p role="alert" className="alert mt-6">
+          {error ?? "Failed to load this event."}
         </p>
+
+        <Link
+          to="/events"
+          className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-accent"
+        >
+          <ArrowLeft />
+          All events
+        </Link>
       </main>
     );
   }
 
   return (
-    <main>
-      <h1>Edit event</h1>
+    <main className="page-body max-w-3xl">
+      <h1 className="font-display text-4xl leading-tight text-ink">
+        Edit event
+      </h1>
 
       <EventForm
         event={event}

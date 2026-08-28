@@ -14,8 +14,10 @@ export default function EventCreatePage() {
   }
 
   return (
-    <main>
-      <h1>New event</h1>
+    <main className="page-body max-w-3xl">
+      <h1 className="font-display text-4xl leading-tight text-ink">
+        New event
+      </h1>
 
       <EventForm
         submitLabel="Create event"

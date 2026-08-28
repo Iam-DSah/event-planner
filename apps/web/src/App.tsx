@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext.js";
 import ProtectedRoute from "./components/ProtectedRoute.js";
 import PublicOnlyRoute from "./components/PublicOnlyRoute.js";
+import { ArrowLeft, Plus } from "./components/Icon.js";
 import EventCreatePage from "./pages/EventCreatePage.js";
 import EventDetailPage from "./pages/EventDetailPage.js";
 import EventEditPage from "./pages/EventEditPage.js";
@@ -10,28 +11,67 @@ import EventsPage from "./pages/EventsPage.js";
 import LoginPage from "./pages/LoginPage.js";
 import RegisterPage from "./pages/RegisterPage.js";
 
+function Wordmark() {
+  return (
+    <Link
+      to="/events"
+      className="font-display text-xl leading-none text-ink no-underline"
+    >
+      Event Planner
+    </Link>
+  );
+}
+
 function Header() {
   const { status, user, logout } = useAuth();
 
   if (status === "loading") {
-    return null;
-  }
-
-  if (status === "anonymous") {
-    return (
-      <header>
-        <Link to="/login">Log in</Link> <Link to="/register">Sign up</Link>
-      </header>
-    );
+    return <div className="h-16 border-b border-rule" />;
   }
 
   return (
-    <header>
-      <Link to="/events">Events</Link> <Link to="/events/new">New event</Link>{" "}
-      <span>Signed in as {user?.name}</span>{" "}
-      <button type="button" onClick={() => void logout()}>
-        Log out
-      </button>
+    <header className="sticky top-0 z-10 border-b border-rule bg-paper">
+      <div className="page flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 py-3">
+        <Wordmark />
+
+        {status === "anonymous" ? (
+          <nav className="flex items-center gap-2">
+            <Link to="/login" className="btn btn-quiet no-underline">
+              Log in
+            </Link>
+
+            <Link to="/register" className="btn btn-primary no-underline">
+              Sign up
+            </Link>
+          </nav>
+        ) : (
+          <nav className="flex items-center gap-x-4 gap-y-2">
+            <Link
+              to="/events"
+              className="text-sm text-ink-muted no-underline hover:text-ink"
+            >
+              Events
+            </Link>
+
+            <span className="hidden text-sm text-ink-muted sm:inline">
+              {user?.name}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="text-sm text-ink-muted underline-offset-2 hover:text-ink"
+            >
+              Log out
+            </button>
+
+            <Link to="/events/new" className="btn btn-primary no-underline">
+              <Plus />
+              New event
+            </Link>
+          </nav>
+        )}
+      </div>
     </header>
   );
 }
@@ -69,14 +109,23 @@ export default function App() {
         <Route
           path="*"
           element={
-            <main>
-              <h1>Page not found</h1>
+            <main className="page-body max-w-2xl">
+              <h1 className="font-display text-4xl leading-tight text-ink">
+                Page not found
+              </h1>
 
-              <p>That page does not exist.</p>
-
-              <p>
-                <Link to="/events">All events</Link>
+              <p className="mt-3 text-ink-muted">
+                That page does not exist. It may have been deleted, or the link
+                may be wrong.
               </p>
+
+              <Link
+                to="/events"
+                className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-accent"
+              >
+                <ArrowLeft />
+                All events
+              </Link>
             </main>
           }
         />

@@ -4,7 +4,6 @@ dist/
 build/
 *.tsbuildinfo
 
-
 .env
 .env.*
 !.env.example
@@ -14,10 +13,11 @@ npm-debug.log*
 
 coverage/
 .vite/
+.eslintcache
 
 .DS_Store
+Thumbs.db
+desktop.ini
 .idea/
 .vscode/
 *.swp
-
-docs/

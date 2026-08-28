@@ -1,13 +1,14 @@
 import { Navigate, Outlet, useLocation, type Location } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext.js";
+import Loading from "./Loading.js";
 
 export default function PublicOnlyRoute() {
   const { status } = useAuth();
   const location = useLocation();
 
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <Loading label="Checking your session…" />;
   }
 
   if (status === "authenticated") {

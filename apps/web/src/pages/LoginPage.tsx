@@ -80,19 +80,31 @@ export default function LoginPage() {
   }
 
   return (
-    <main>
-      <h1>Login</h1>
+    <main className="page-body flex min-h-[calc(100dvh-12rem)] max-w-md flex-col justify-center">
+      <h1 className="font-display text-4xl leading-tight text-ink">Log in</h1>
 
-      {formError && <p role="alert">{formError}</p>}
+      <p className="mt-2 text-ink-muted">
+        Sign in to see your events and create new ones.
+      </p>
 
-      <form onSubmit={handleSubmit} noValidate>
+      {formError && (
+        <p role="alert" className="alert mt-6">
+          {formError}
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-5">
         <div>
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email" className="label">
+            Email
+          </label>
 
           <input
             id="email"
             name="email"
             type="email"
+            autoComplete="email"
+            className="input"
             value={form.email}
             onChange={(event) =>
               setForm((current) => ({
@@ -104,16 +116,24 @@ export default function LoginPage() {
             aria-describedby={fieldErrors.email ? "email-error" : undefined}
           />
 
-          {fieldErrors.email && <p id="email-error">{fieldErrors.email}</p>}
+          {fieldErrors.email && (
+            <p id="email-error" className="field-error">
+              {fieldErrors.email}
+            </p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password" className="label">
+            Password
+          </label>
 
           <input
             id="password"
             name="password"
             type="password"
+            autoComplete="current-password"
+            className="input"
             value={form.password}
             onChange={(event) =>
               setForm((current) => ({
@@ -128,17 +148,26 @@ export default function LoginPage() {
           />
 
           {fieldErrors.password && (
-            <p id="password-error">{fieldErrors.password}</p>
+            <p id="password-error" className="field-error">
+              {fieldErrors.password}
+            </p>
           )}
         </div>
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Logging in..." : "Log in"}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="btn btn-primary w-full"
+        >
+          {submitting ? "Logging in…" : "Log in"}
         </button>
       </form>
 
-      <p>
-        No account? <Link to="/register">Sign up</Link>
+      <p className="mt-6 text-sm text-ink-muted">
+        No account?{" "}
+        <Link to="/register" className="font-medium text-accent">
+          Sign up
+        </Link>
       </p>
     </main>
   );

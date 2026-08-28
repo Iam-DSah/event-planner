@@ -69,17 +69,94 @@ export function instantToWallTime(iso: string, timeZone: string): string {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }
 
+function viewerReadingDiffers(iso: string, timeZone: string): boolean {
+  return (
+    formatInTimeZone(iso, browserTimeZone()) !== formatInTimeZone(iso, timeZone)
+  );
+}
+
 export function describeEventTime(
   iso: string,
   timeZone: string,
 ): { venue: string; viewer: string | null } {
-  const venue = `${formatInTimeZone(iso, timeZone)} (${timeZone})`;
-  const viewerZone = browserTimeZone();
-  const viewer = formatInTimeZone(iso, viewerZone);
-
   return {
-    venue,
-    viewer: viewer === formatInTimeZone(iso, timeZone) ? null : viewer,
+    venue: `${formatInTimeZone(iso, timeZone)} (${timeZone})`,
+    viewer: viewerReadingDiffers(iso, timeZone)
+      ? formatInTimeZone(iso, browserTimeZone())
+      : null,
+  };
+}
+
+function part(
+  iso: string,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions,
+  type?: Intl.DateTimeFormatPartTypes,
+): string {
+  const instant = new Date(iso);
+
+  const render = (zone: string): string => {
+    const formatter = new Intl.DateTimeFormat(undefined, {
+      ...options,
+      timeZone: zone,
+    });
+
+    if (!type) {
+      return formatter.format(instant);
+    }
+
+    return (
+      formatter.formatToParts(instant).find((piece) => piece.type === type)
+        ?.value ?? ""
+    );
+  };
+
+  try {
+    return render(timeZone);
+  } catch {
+    return render("UTC");
+  }
+}
+
+export interface EventTimeParts {
+  date: string;
+  time: string;
+  offset: string;
+  viewer: string | null;
+}
+
+export function describeEventTimeParts(
+  iso: string,
+  timeZone: string,
+): EventTimeParts {
+  return {
+    date: part(iso, timeZone, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+
+    time: part(iso, timeZone, {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }),
+
+    offset: part(
+      iso,
+      timeZone,
+      { timeZoneName: "shortOffset" },
+      "timeZoneName",
+    ),
+
+    viewer: viewerReadingDiffers(iso, timeZone)
+      ? part(iso, browserTimeZone(), {
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })
+      : null,
   };
 }
 

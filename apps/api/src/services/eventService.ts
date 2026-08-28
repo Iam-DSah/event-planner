@@ -1,7 +1,8 @@
-import type {
-  CreateEventInput,
-  UpdateEventInput,
-  EventListQueryInput,
+import {
+  toStoredSecond,
+  type CreateEventInput,
+  type UpdateEventInput,
+  type EventListQueryInput,
 } from "@event-planner/shared";
 
 import type { Knex } from "knex";
@@ -169,7 +170,10 @@ export async function updateEvent(
           : new Date(input.endsAt)
         : event.endsAt;
 
-    if (nextEndsAt !== null && nextEndsAt <= nextStartsAt) {
+    if (
+      nextEndsAt !== null &&
+      toStoredSecond(nextEndsAt) <= toStoredSecond(nextStartsAt)
+    ) {
       throw new EventValidationError(
         "The end time must be after the start time",
         "endsAt",

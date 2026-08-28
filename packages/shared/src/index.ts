@@ -252,6 +252,10 @@ function isValidIanaTimezone(value: string): boolean {
   }
 }
 
+export function toStoredSecond(value: string | Date): number {
+  return Math.round(new Date(value).getTime() / 1000);
+}
+
 function addEventTimeAndTimezoneValidation(
   data: z.infer<typeof eventBaseSchema>,
   ctx: z.RefinementCtx,
@@ -259,7 +263,7 @@ function addEventTimeAndTimezoneValidation(
   if (
     data.endsAt !== undefined &&
     data.endsAt !== null &&
-    new Date(data.endsAt) <= new Date(data.startsAt)
+    toStoredSecond(data.endsAt) <= toStoredSecond(data.startsAt)
   ) {
     ctx.addIssue({
       code: "custom",
@@ -301,7 +305,7 @@ export const updateEventSchema = eventBaseSchema
       data.endsAt !== undefined &&
       data.startsAt !== null &&
       data.endsAt !== null &&
-      new Date(data.endsAt) <= new Date(data.startsAt)
+      toStoredSecond(data.endsAt) <= toStoredSecond(data.startsAt)
     ) {
       ctx.addIssue({
         code: "custom",

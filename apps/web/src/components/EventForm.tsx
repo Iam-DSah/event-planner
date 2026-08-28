@@ -22,17 +22,6 @@ interface EventFormProps {
   cancelTo: string;
 }
 
-/**
- * One form for create and edit. Not a speculative abstraction — there are two
- * concrete callers today, and the ~100 lines they share are the datetime
- * conversion and the error mapping, which are exactly the parts that must not
- * drift between them.
- *
- * Both modes build the SAME full payload and validate it with
- * `createEventSchema`. The edit path could have used `updateEventSchema`, but
- * that schema is `.partial()` and accepts the complete object anyway (verified),
- * so branching on two schemas would buy a second code path and no correctness.
- */
 export default function EventForm({
   event,
   submitLabel,
@@ -51,9 +40,6 @@ export default function EventForm({
   const [form, setForm] = useState({
     title: event?.title ?? "",
     description: event?.description ?? "",
-    // instantToWallTime, NOT toISOString().slice(0,16). The latter fills the
-    // box with the UTC wall time, so an untouched edit form silently moves the
-    // event by the zone's offset.
     startsAt: event ? instantToWallTime(event.startsAt, initialTimeZone) : "",
     endsAt: event?.endsAt
       ? instantToWallTime(event.endsAt, initialTimeZone)
@@ -72,16 +58,6 @@ export default function EventForm({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  /**
-   * The live confirmation of what will actually be saved.
-   *
-   * This is the mitigation for the one case the conversion cannot get right:
-   * a wall time inside a spring-forward gap does not exist, and resolves to a
-   * nearby real instant instead. Rather than warn about a case most users will
-   * never hit, the form always shows the instant it is about to store, read
-   * back in the chosen zone. In the normal case it reassures; in the gap case
-   * the user sees the time change and can react.
-   */
   let previewInstant: string | null = null;
 
   if (form.startsAt) {
@@ -95,15 +71,10 @@ export default function EventForm({
   function buildInput(): unknown {
     return {
       title: form.title,
-      // "" is fine — the schema's transform maps it to null. Verified, despite
-      // a note claiming .partial() suppresses that transform on update: it
-      // does not.
       description: form.description,
       startsAt: form.startsAt
         ? wallTimeToInstant(form.startsAt, form.timezone)
         : "",
-      // null, NOT "". An empty datetime-local yields "", which the schema
-      // rejects as "Invalid ISO datetime" rather than reading as "no end time".
       endsAt: form.endsAt
         ? wallTimeToInstant(form.endsAt, form.timezone)
         : null,
@@ -123,9 +94,6 @@ export default function EventForm({
     const errors: Record<string, string> = {};
 
     for (const [path, message] of entries) {
-      // A "" path is an object-level issue — .strict()'s unknown-key error and
-      // the update schema's "at least one field" both land here, and neither
-      // belongs against an input.
       if (path === "" || path === "_form") {
         setFormError(message);
         continue;

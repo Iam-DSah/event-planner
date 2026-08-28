@@ -8,11 +8,6 @@ import { useAuth } from "../auth/AuthContext.js";
 export default function LoginPage() {
   const { login } = useAuth();
 
-  // This page does NOT navigate. It authenticates; PublicOnlyRoute owns where
-  // an authenticated user goes, including honouring the location ProtectedRoute
-  // carried here. Two components deciding that raced, and the guard won —
-  // silently dropping the requested URL.
-
   const [form, setForm] = useState({
     email: "",
     password: "",

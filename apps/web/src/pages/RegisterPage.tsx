@@ -6,8 +6,6 @@ import { ApiError } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
 
 export default function RegisterPage() {
-  // This page does NOT navigate. It registers; PublicOnlyRoute owns where an
-  // authenticated user goes. Same rule as LoginPage.
   const { register } = useAuth();
 
   const [form, setForm] = useState({

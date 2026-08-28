@@ -10,13 +10,6 @@ import EventsPage from "./pages/EventsPage.js";
 import LoginPage from "./pages/LoginPage.js";
 import RegisterPage from "./pages/RegisterPage.js";
 
-/**
- * Renders nothing while the boot /me is still in flight — a logged-out header
- * during "loading" is the same flash the three-state model exists to avoid,
- * just in the chrome instead of the page body. Once the answer arrives, BOTH
- * outcomes get chrome: an anonymous visitor needs a way to reach sign-up, and
- * /register is otherwise only reachable by typing the URL.
- */
 function Header() {
   const { status, user, logout } = useAuth();
 

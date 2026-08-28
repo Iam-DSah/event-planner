@@ -17,8 +17,6 @@ export const registerSchema = z
       .max(255, "Email must be 255 characters or fewer"),
     password: z
       .string({ error: "Password is required" })
-      // Same ordering trick as email above: an empty box should say
-      // "required", and only a non-empty-but-short one should quote the rule.
       .min(1, "Password is required")
       .min(8, "Password must be at least 8 characters")
       .max(128, "Password must be 128 characters or fewer"),
@@ -27,10 +25,6 @@ export const registerSchema = z
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
-// Shape, not policy — the 8-character floor deliberately does NOT appear here.
-// A short guess must fail the same way a wrong one does; 400 where a real
-// attempt gets 401 replaces a timing oracle with a status-code one. So the
-// message says "required", never "too short".
 export const loginSchema = z
   .object({
     email: z
@@ -113,9 +107,6 @@ export const eventListQuerySchema = z
         message: `A maximum of ${MAX_TAGS} unique tags may be provided`,
       }),
 
-    // The user's literal text. Sanitizing it into MySQL BOOLEAN MODE syntax is
-    // the API's job (lib/searchQuery.ts) — keeping the raw words here is what
-    // makes ?q=music a readable, shareable URL.
     q: z.string().trim().min(1, "Search must not be empty").max(100).optional(),
 
     visibility: z.enum(["public", "private"]).optional(),

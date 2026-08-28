@@ -3,8 +3,6 @@ import type { CreateEventInput } from "@event-planner/shared";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/v1";
 
-// One in-flight refresh for the whole module. Concurrent 401s await this same
-// promise instead of each firing their own rotation.
 let refreshInFlight: Promise<boolean> | null = null;
 
 // Set by AuthProvider. Means "the session unexpectedly became invalid" — NOT
@@ -74,8 +72,6 @@ async function parseResponse<T>(response: Response): Promise<T> {
     return body as T;
   }
 
-  // Trust the envelope only once its shape is checked — a failure that is not
-  // ours (a proxy, a dead server) falls through to the generic error below.
   if (typeof body === "object" && body !== null && "error" in body) {
     const errorBody = body as ApiErrorResponse;
 
@@ -128,11 +124,6 @@ export async function request<T>(
   options: RequestInit = {},
   retried = false,
 ): Promise<T> {
-  // Content-Type only when there is a body to describe. "application/json"
-  // is not a CORS-safelisted header value, so sending it unconditionally
-  // forces a preflight on every bodyless GET — measured server-side:
-  //   with the header:     OPTIONS /probe  then  GET /probe
-  //   without the header:  GET /probe
   const hasBody = options.body !== undefined && options.body !== null;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -218,12 +209,6 @@ export async function logout(): Promise<void> {
   await request<void>("/auth/logout", { method: "POST" });
 }
 
-/**
- * Dates arrive as ISO STRINGS, not Date objects — JSON has no date type, so
- * the API's `Date` fields are serialised by JSON.stringify. Typing them as
- * Date here would compile and then blow up on the first `.toLocaleString()`.
- * Convert at the point of display.
- */
 export interface Event {
   id: string;
   creatorId: string;
@@ -261,11 +246,6 @@ export async function listEvents(
   params: EventListParams = {},
 ): Promise<{ events: Event[]; pagination: Pagination }> {
   const query = new URLSearchParams();
-
-  // Empty values are OMITTED, never appended blank. The API rejects `?tag=`
-  // and `?page=` with 400 VALIDATION_ERROR rather than reading them as "no
-  // filter" — deliberate on the server side, so a form that serialises every
-  // input unconditionally gets a validation error instead of a full list.
   const set = (key: string, value: string | number | undefined) => {
     if (value !== undefined && String(value) !== "") {
       query.set(key, String(value));
@@ -274,16 +254,10 @@ export async function listEvents(
 
   set("page", params.page);
 
-  // The user's literal words. The API turns them into BOOLEAN MODE syntax;
-  // sending pre-mangled text would make ?q= unreadable in a shared link and
-  // put the same rule in two places.
   set("q", params.q);
   set("limit", params.limit);
   set("visibility", params.visibility);
 
-  // Only when true. `set` would otherwise append "mine=false", which parses
-  // to the same result but puts a default into every shared link — the same
-  // reason page 1 is written as /events rather than /events?page=1.
   if (params.mine) {
     query.set("mine", "true");
   }
@@ -291,10 +265,6 @@ export async function listEvents(
   set("sort", params.sort);
   set("order", params.order);
 
-  // append, not set: it REPEATS the key (?tag=a&tag=b), which is the only
-  // array form Express 5 understands. Its default query parser is `simple`,
-  // not `qs`, so `?tag[]=a` arrives as a key literally named "tag[]" and the
-  // filter silently does nothing — a 200 with an unfiltered result set.
   for (const tag of params.tags ?? []) {
     if (tag.trim() !== "") {
       query.append("tag", tag);
@@ -308,12 +278,6 @@ export async function listEvents(
   );
 }
 
-/**
- * encodeURIComponent, even though the API rejects any id that is not a
- * positive integer: the id arrives from a URL parameter, so an unencoded "/"
- * would change which PATH is requested rather than producing the 400 the
- * server is waiting to give. Encoding keeps a bad id a bad id.
- */
 export async function getEvent(id: string): Promise<Event> {
   const response = await request<{ event: Event }>(
     `/events/${encodeURIComponent(id)}`,
@@ -329,17 +293,6 @@ export async function deleteEvent(id: string): Promise<void> {
   });
 }
 
-/**
- * Both take the FULL field set, and both are validated by the caller against
- * `createEventSchema` before they are sent.
- *
- * That the PATCH also sends everything is deliberate: `updateEventSchema` is
- * `.partial()`, so it accepts the complete object just as happily as a subset,
- * and sending the whole form removes the dirty-tracking a "send only what
- * changed" design would need. Accepted cost: two tabs editing one event, the
- * later save wins on every field rather than only on the fields it touched.
- * Only the creator can edit, so that is one person in two tabs.
- */
 export async function createEvent(input: CreateEventInput): Promise<Event> {
   const response = await request<{ event: Event }>("/events", {
     method: "POST",

@@ -10,28 +10,11 @@ import {
 } from "../api/client.js";
 import EventTime from "../components/EventTime.js";
 
-/**
- * The URL is the single source of truth for this page — there is no useState
- * mirror and no effect syncing one into the other. Two stores would mean the
- * back button updates only one of them.
- *
- * Parsing goes through the SAME schema the API validates with
- * (`eventListQuerySchema` from packages/shared), which is the monorepo's whole
- * justification (D003) applied on the frontend: page and limit arrive as
- * numbers via its .transform(Number), the .default()s mean a bare /events
- * needs no special case, and an out-of-range ?page= is refused here by the
- * schema's own MAX_OFFSET rule without a network round trip.
- */
 function parseListQuery(search: string) {
   const searchParams = new URLSearchParams(search);
 
   return eventListQuerySchema.safeParse({
     ...Object.fromEntries(searchParams),
-
-    // getAll, NOT the spread above: Object.fromEntries keeps only the LAST
-    // value of a repeated key, so ?tag=Music&tag=Tech would silently filter
-    // by Tech alone. Repeating the key is the only array form Express 5's
-    // `simple` query parser understands, so the server sends them that way.
     tag: searchParams.getAll("tag"),
   });
 }
@@ -44,18 +27,10 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Memoised on the query STRING, not on the URLSearchParams instance. The
-  // fetch effect depends on the parse result, and a result rebuilt on every
-  // render would re-fire the effect on every render — an infinite fetch loop.
-  // A string compares by value, so this needs no assumption about whether
-  // React Router hands back a stable instance.
   const search = searchParams.toString();
   const parsed = useMemo(() => parseListQuery(search), [search]);
 
   useEffect(() => {
-    // An unparseable URL never reaches the network: the schema already knows
-    // every rule the server would apply, so a round trip could only return
-    // the same 400 more slowly.
     if (!parsed.success) {
       setLoading(false);
       setError(
@@ -71,9 +46,6 @@ export default function EventsPage() {
       return;
     }
 
-    // parsed.data, not the `params` const below: the guard above narrows
-    // `parsed`, and that narrowing does not carry to a separately declared
-    // variable. `params` exists for the JSX, which has no guard to narrow it.
     const query = parsed.data;
 
     let cancelled = false;
@@ -124,9 +96,6 @@ export default function EventsPage() {
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
 
-      // Page 1 is the schema's default, so it is REMOVED rather than written.
-      // A shared link should be the shortest URL that reproduces the view;
-      // ?page=1 is noise that says nothing the default does not.
       if (page <= 1) {
         next.delete("page");
       } else {
@@ -142,18 +111,10 @@ export default function EventsPage() {
 
     const data = new FormData(event.currentTarget);
 
-    // Built from the CURRENT params, not from scratch, so a value this form
-    // has no control for (limit, sort, order) survives an Apply instead of
-    // being silently reset to its default.
     const next = new URLSearchParams(searchParams);
 
-    // A changed filter invalidates the old offset. Without this, filtering
-    // while on page 5 of an unfiltered list lands on page 5 of a two-page
-    // result — an empty screen that looks like "no events match".
     next.delete("page");
 
-    // delete() removes EVERY occurrence of a repeated key. Skipping it would
-    // append the new tags to the old ones on each Apply.
     next.delete("tag");
 
     const when = String(data.get("when") ?? "");
@@ -256,7 +217,7 @@ export default function EventsPage() {
 
         <div>
           {/* A checkbox contributes to FormData ONLY when checked, so an
-            unchecked box is simply an absent key — which is exactly the
+            unchecked box is simply an absent key, which is exactly the
             "no filter" case, with no false/"off" value to special-case. */}
           <input
             id="mine"
@@ -301,7 +262,7 @@ export default function EventsPage() {
 
             {/* Venue time always; the viewer's local reading only when it
               differs. starts_at is a UTC instant and `timezone` is the venue's
-              zone (D004). */}
+              zone*/}
             <p>
               <strong>Starts:</strong>{" "}
               <EventTime iso={event.startsAt} timeZone={event.timezone} />

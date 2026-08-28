@@ -15,9 +15,6 @@ export default function EventEditPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // The form is seeded from the server's copy, never from router state handed
-  // over by the detail page: a deep link to /events/5/edit has no router state
-  // and would render an empty form, so the fetch path has to exist anyway.
   useEffect(() => {
     if (!id) {
       return;
@@ -72,13 +69,6 @@ export default function EventEditPage() {
     );
   }
 
-  /**
-   * A GET succeeds for any public event, including someone else's — 403 is
-   * raised only by the mutation endpoints. So this page has to refuse
-   * non-owners itself, or it would render a fully populated form whose Save
-   * button always 403s. The server is still the authority; this only avoids
-   * offering an action that cannot succeed.
-   */
   if (event && user && event.creatorId !== user.id) {
     return (
       <main>

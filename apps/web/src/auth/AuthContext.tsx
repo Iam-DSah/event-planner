@@ -18,12 +18,6 @@ import {
   type User,
 } from "../api/client.js";
 
-/**
- * Three states, not `User | null`. With two, `null` means both "the boot /me
- * has not answered yet" and "logged out", so a logged-in user who refreshes
- * sees the login page flash before the dashboard — and once routing lands,
- * that same ambiguity redirects them away from the page they asked for.
- */
 type AuthState =
   | { status: "loading"; user: null }
   | { status: "authenticated"; user: User }

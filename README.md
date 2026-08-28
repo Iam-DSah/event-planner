@@ -6,11 +6,6 @@ with server-side pagination, filtering by tag, visibility, creator and
 upcoming/past, full-text search and sorting. Only an event's creator can edit
 or delete it.
 
-<!-- GAP(styling): the UI's appearance is deliberately not described here yet.
-     Rewrite the UI-related claims after the stylesheet lands and delete the
-     Known Limitations entry recording its absence.
-     DO NOT SHIP while this comment is present. -->
-
 ## Stack
 
 Versions are those installed in `node_modules`, not the ranges declared in
@@ -148,16 +143,20 @@ typecheck and build both pass.
 
 ### 2. Time is a UTC instant; the timezone is display-only
 
-`starts_at` holds a UTC instant. `timezone` holds an IANA name used **only** to
+`starts_at` holds a UTC instant. `timezone` holds an IANA name used only to
 render it in the venue's local time, and never appears in a `WHERE` clause.
 
-That restriction is the decision: wrapping the column to filter by local time
-destroys the index. Measured on 200,037 rows, both returning the same count:
+That restriction is the decision, and it is what keeps the upcoming/past split
+usable. Filtering on the bare column is an index range scan; wrapping it in
+`CONVERT_TZ` to compare local times forces MySQL to compute a value per row, so
+no index can serve it and the query becomes a full table scan. The cost grows
+with the table, so the version that looks more correct is the one that stops
+working first.
 
-| query | plan | time |
-|---|---|---|
-| `starts_at >= UTC_TIMESTAMP()` | range scan on `idx_events_starts_at` | **11.83 ms** |
-| `CONVERT_TZ(starts_at, …) >= …` | full table scan, no key | **77.20 ms** |
+The consequence for the application is that "upcoming" means upcoming in UTC,
+for everyone. An event at 9am in Kathmandu and one at 9am in London are ordered
+by the instant they actually occur, not by their local clock readings, which is
+the ordering a shared list needs.
 
 mysql2 is pinned to `timezone: 'Z'` so the driver never applies the host's
 offset. Wall-clock to instant takes two passes in the browser, because one pass
@@ -167,10 +166,10 @@ is an hour out just after a spring-forward transition.
 
 argon2id is memory-hard, which is what makes GPU cracking expensive. Parameters
 are passed explicitly — 19,456 KiB, 2 iterations, 1 lane, the OWASP baseline —
-rather than left to defaults, because they *are* the security decision.
+rather than left to defaults, because they are the security decision.
 
 bcrypt also ignores everything past 72 bytes. Demonstrated: hash a
-106-character password, then verify a **different** 106-character password
+106-character password, then verify a different 106-character password
 sharing only its first 72 bytes. bcrypt returns `true`; argon2id returns
 `false`.
 
@@ -190,7 +189,7 @@ revokes the whole family. Their cookie is scoped to `Path=/api/v1/auth`.
 
 Same status, same message. That alone is insufficient: "no such user" returns
 immediately while "wrong password" pays for a hash verification, and the gap is
-measurable with a stopwatch. So the unknown-email path performs a **discarded**
+measurable with a stopwatch. So the unknown-email path performs a discarded
 verification against a dummy hash. Over 40 interleaved pairs:
 
 | | unknown email | wrong password | gap |
@@ -237,18 +236,24 @@ duplicate registration is translated where the query runs.
 
 Every index costs write throughput, so each traces to a query the brief asks
 for. The listing query filters a grouped `OR` — public events plus your own —
-ordered by start time. Measured on 200,037 rows:
+ordered by start time, and an index on `starts_at` serves both the filter and
+the ordering, so the first page is read straight from the index and stops as
+soon as it has twenty rows.
 
-| offset | plan | time |
-|---|---|---|
-| 0 | index range scan | **1.04 ms** |
-| 1,000 | index range scan | 11 ms |
-| 50,000 | table scan | 97.5 ms |
+That advantage decays with depth. Measured on 200,000 rows, the first page
+returns in about a millisecond; a thousand rows deep is an order of magnitude
+slower; and by an offset of fifty thousand MySQL abandons the index for a table
+scan roughly a hundred times slower than the first page. The reason is inherent
+to offset pagination — the database cannot skip rows it has not examined, so the
+work grows with the offset rather than with the page size. Offsets beyond
+100,000 are therefore rejected outright: a depth no genuine user reaches by
+clicking, and the point past which the query stops being cheap.
 
-Offset pagination degrades with depth — the database still counts past skipped
-rows — so offsets beyond 100,000 are rejected. The exact total is the expensive
-half: the same filter without a `LIMIT` cannot stop early and scans the table.
-That is the price of "page 3 of 47" instead of infinite scroll.
+The exact total is the expensive half regardless of depth: the same filter
+without a `LIMIT` has no early exit and must examine every matching row. That is
+the standing price of showing "page 3 of 47" rather than an infinite scroll, and
+it is why the count and the rows are built by one shared `WHERE` builder — two
+builders would let the number drift from the list with nothing erroring.
 
 ### 9. FULLTEXT search, with a per-token LIKE fallback
 
@@ -305,6 +310,10 @@ one.
   middleware.
 - Each event has a single venue timezone. An event spanning zones is out of
   scope.
+- **Events may be created with a start time in the past**, and are then editable
+  and deletable like any other. Nothing rejects a past date on either side. This
+  is deliberate: a planner records events that have already happened as often as
+  ones that have not.
 - **An event that has already started lists as past** — the split is on start
   time, so an in-progress event appears under past.
 - Tag names are case-insensitive and trimmed: `Birthday`, `birthday` and
@@ -320,15 +329,6 @@ one.
 
 ## Known limitations
 
-<!-- GAP(styling): the first entry is written against the current state and
-     MUST be revisited once the stylesheet exists. -->
-
-- **There is no stylesheet.** Every page is semantic HTML with no CSS, so the
-  interface is unstyled and its responsive behaviour is the browser's defaults.
-  This does not meet the brief's expectation of a clean, responsive UI. The
-  markup was written to be styleable without restructuring — semantic elements,
-  `label`/`id` pairs, `role="alert"` on error regions — but the stylesheet is
-  absent.
 - **Unknown-field validation errors are not attached to a field**; they report
   against the object. Only reachable by a hand-written request.
 - **Logging is `console`-based**, at security-relevant points only. No
@@ -342,10 +342,9 @@ Built beyond the required core: refresh-token rotation with reuse detection,
 full-text search, sorting, server-side filtering, Knex migrations, and an
 automated test suite.
 
-Deliberately not built: two-factor authentication, email verification, RSVP,
-and Swagger/OpenAPI — all on the brief's optional list. With a fixed deadline,
-depth on the required features beat breadth across optional ones, because it is
-the subtle features that fail quietly.
+Deliberately not built: two-factor authentication, email verification and RSVP
+all on the brief's optional list. With a fixed deadline,depth on the required features
+beat breadth across optional ones, because it is the subtle features that fail quietly.
 
 Account deletion is also absent. It is not a missing CRUD endpoint:
 `events.creator_id` is `ON DELETE RESTRICT`, so removing a user first requires

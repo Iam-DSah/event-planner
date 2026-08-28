@@ -17,16 +17,6 @@ services:
       # `docker compose down -v` is what actually destroys it.
       - mysql_data:/var/lib/mysql
     healthcheck:
-      # Deliberately over TCP (-h 127.0.0.1) as the APPLICATION user, against
-      # the APPLICATION database — not `mysqladmin ping` on the socket.
-      #
-      # On first boot the MySQL entrypoint starts a temporary server with
-      # networking disabled to run its init scripts. That temporary server
-      # answers a socket ping perfectly happily, so a socket-based healthcheck
-      # reports "healthy" while the database does not exist yet, and your first
-      # migration fails. Connecting over TCP as the app user proves three
-      # things at once: the real server is up, the user exists, the schema
-      # exists.
       test:
         [
           "CMD-SHELL",

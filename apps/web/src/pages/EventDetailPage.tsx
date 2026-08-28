@@ -5,16 +5,6 @@ import { ApiError, deleteEvent, getEvent, type Event } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.js";
 import EventTime from "../components/EventTime.js";
 
-/**
- * The API deliberately answers 404 for BOTH "no such event" and "a private
- * event that is not yours" (eventService.getEvent). This page must conflate
- * them too: a message distinguishing the two would re-leak, through the UI,
- * exactly the existence the server took care to hide.
- *
- * Note what is NOT a state here: 403. A GET never returns it. A public event
- * you do not own is readable — 200 — and only its Edit/Delete controls are
- * withheld. 403 exists only on the mutation endpoints.
- */
 function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 404) {
@@ -60,9 +50,6 @@ export default function EventDetailPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          // The event is cleared as well as the error being set: leaving a
-          // previously loaded event on screen under an error message shows two
-          // contradictory answers at once.
           setEvent(null);
           setError(describeError(error));
         }
@@ -80,12 +67,6 @@ export default function EventDetailPage() {
     };
   }, [id]);
 
-  /**
-   * Ownership is decided from data the server sent, not from anything the
-   * client asserts. Hiding the buttons is a UI courtesy — the real rule is
-   * getEventForMutation's ForbiddenError, which is what actually stops a
-   * hand-made DELETE.
-   */
   const isOwner = Boolean(event && user && event.creatorId === user.id);
 
   async function handleDelete() {
@@ -93,9 +74,6 @@ export default function EventDetailPage() {
       return;
     }
 
-    // window.confirm, not a modal component. It is native, focus-trapped and
-    // keyboard-accessible for free, and a bespoke dialog would be the largest
-    // thing on this page in service of one irreversible click.
     if (!window.confirm(`Delete "${event.title}"? This cannot be undone.`)) {
       return;
     }
@@ -105,14 +83,6 @@ export default function EventDetailPage() {
 
     try {
       await deleteEvent(event.id);
-
-      // D023 says routing is a function of auth state and pages do not
-      // navigate. This is the documented exception and not a violation of it:
-      // the resource this URL names no longer exists, which is not an auth
-      // transition and no guard can express it.
-      //
-      // replace, not push: without it the Back button returns to the detail
-      // page of an event that is now deleted, which 404s.
       navigate("/events", { replace: true });
     } catch (error) {
       setError(describeError(error));

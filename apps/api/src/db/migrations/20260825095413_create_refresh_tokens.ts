@@ -21,10 +21,7 @@ export async function up(knex: Knex): Promise<void> {
 
     // All tokens issued by one login/rotation chain share a family_id.
     // Used to revoke the entire family when token reuse is detected.
-    //
-    // A generated UUID rather than the first token's id: nothing joins to it,
-    // and generating it in application code keeps login a single INSERT
-    // instead of insert-then-update-with-its-own-id.
+
     table.uuid("family_id").notNullable();
 
     table.dateTime("expires_at", { precision: 3 }).notNullable();

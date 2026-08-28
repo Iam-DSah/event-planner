@@ -60,12 +60,6 @@ export async function authenticateUser(input: LoginInput): Promise<User> {
     email: user.email,
   };
 }
-
-/**
- * Internal control-flow signal, deliberately NOT in domainErrors.ts: everything
- * in that file has an HTTP mapping in errorHandler, and this must never reach
- * a client. It only means "another request won the compare-and-set".
- */
 class RefreshTokenRotationRaceError extends Error {
   constructor() {
     super("Refresh token rotation race");
@@ -80,11 +74,6 @@ export interface SessionTokens {
   refreshExpiresAt: Date;
 }
 
-/**
- * Mints one refresh token inside an existing family and stores its hash.
- * Used by both the normal rotation and the grace path, so the two cannot
- * drift in how they compute expiry or what they store.
- */
 async function issueTokenInFamily(
   userId: string,
   familyId: string,
@@ -208,9 +197,6 @@ export async function rotateSession(
       throw error;
     }
 
-    // Losing the compare-and-set means the token was used during this very
-    // request, which is inside the grace window by construction — no re-read
-    // needed to establish that.
     console.warn("Refresh: lost rotation race, issuing sibling token");
 
     return sessionFor(

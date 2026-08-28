@@ -29,12 +29,6 @@ export async function findOrCreateTags(
     }
   }
 
-  // Important for concurrent inserts:
-  // acquire locks in a deterministic order regardless of the order
-  // in which the client supplied the tags.
-  // Compare the lowercase keys directly. localeCompare depends on the runtime
-  // locale (ä sorts before z under de, after it under sv), so two processes
-  // could sort the same names differently and lose the lock ordering entirely.
   const normalizedNames = [...uniqueNames.values()].sort((a, b) => {
     const left = tagKey(a);
     const right = tagKey(b);
@@ -66,13 +60,7 @@ export async function findOrCreateTags(
     (name) => !existingByKey.has(name.toLowerCase()),
   );
 
-  // Create missing tags one at a time.
-  //
-  // We intentionally handle ER_DUP_ENTRY rather than using INSERT IGNORE:
-  // INSERT IGNORE can hide unrelated data errors.
   for (const name of missingNames) {
-    // The try wraps the INSERT and nothing else, so the only errors this catch
-    // inspects are the driver's. Our own throws stay outside it.
     let insertedId: number | undefined;
 
     try {
@@ -88,11 +76,6 @@ export async function findOrCreateTags(
         throw error;
       }
 
-      // Another transaction created the tag between our SELECT and INSERT.
-      //
-      // Re-select it using the transaction's current locking read: under
-      // REPEATABLE READ a plain SELECT would still see the snapshot taken
-      // before that transaction committed, and find nothing.
       const row = await trx("tags")
         .select("id", "name")
         .where("name", name)

@@ -15,13 +15,6 @@ type ErrorMapping = {
 };
 
 const errorMappings: ErrorMapping[] = [
-  // More specific errors should come first.
-  //
-  // EventValidationError is deliberately absent. This table emits only
-  // { code, message }; that error carries a `field`, and a form needs it to
-  // know which input to highlight. An entry here would match first and make
-  // its dedicated branch below unreachable — the same way an entry for
-  // UnauthorizedError has twice silently erased TOKEN_EXPIRED.
   {
     matches: (error) => error instanceof NotFoundError,
     status: 404,

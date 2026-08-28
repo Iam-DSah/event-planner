@@ -146,9 +146,6 @@ export async function me(
     const userId = req.userId;
 
     if (!userId) {
-      // Unreachable while requireAuth is mounted on this route, which is
-      // exactly why it has to say something: without a line here a mounting
-      // mistake returns a plausible 401 and leaves no trace of the cause.
       console.warn("me: reached without requireAuth — route is misconfigured");
 
       throw new UnauthorizedError();

@@ -13,7 +13,7 @@ const config: Knex.Config = {
 
     charset: "utf8mb4",
 
-    // We store UTC instants in a DATETIME column. By default the mysql2 driver
+    // Store UTC instants in a DATETIME column. By default the mysql2 driver
     // converts JavaScript Date objects using the *server's local timezone* on
     // write, and interprets DATETIME values the same way on read.
     timezone: "Z",

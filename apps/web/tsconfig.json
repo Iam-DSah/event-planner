@@ -1,54 +1,18 @@
-// Extends the shared base and overrides only what a browser app needs
-// differently from a Node app.
-//
-// Note on style: the base uses a "//" KEY for its annotation, which works at
-// the top level of a tsconfig. It does NOT work inside compilerOptions — tsc
-// validates those keys and rejects "//module" with TS5025. tsconfig is JSONC,
-// so real comments are the portable way to annotate this file.
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    // The base pins NodeNext because the API runs on Node and needs Node's
-    // resolution rules, including the .js-extension-on-.ts-source requirement.
-    // Vite bundles instead, so it resolves like a bundler: no extension, and
-    // package "exports" maps are honoured. That is what lets
-    //   import { registerSchema } from "@event-planner/shared"
-    // resolve straight to TypeScript source with no build step.
     "module": "ESNext",
     "moduleResolution": "Bundler",
 
-    // DOM and DOM.Iterable are the browser globals — document, fetch,
-    // spreading a NodeList. The API's tsconfig deliberately omits these, which
-    // is what stops a browser API being used server-side by accident.
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
 
-    // The modern transform: it injects the JSX runtime import itself, so no
-    // file needs `import React from "react"` merely to use JSX.
     "jsx": "react-jsx",
 
-    // Vite does the emitting. tsc here is a type checker only, picked up by
-    // `npm run typecheck` at the root through --workspaces.
     "noEmit": true,
 
-    // Ambient types for import.meta.env and Vite's asset imports.
-    //
-    // Naming this array is NOT by itself enough to keep @types/node out. That
-    // was checked, not assumed: with vite.config.ts in the program, `process`
-    // still typechecks, because vite's own config types pull node in —
-    //   @types/node/index.d.ts
-    //     Type library referenced via 'node' from vite/dist/node/index.d.ts
-    // It takes the "include" below, which keeps vite.config.ts out of this
-    // program entirely, for `process.env.X` in src/ to become the compile
-    // error it should be. That matters: Vite does not polyfill `process`, so
-    // the alternative is a TypeError in the browser that tsc never flagged.
-    // Use import.meta.env.VITE_* — and note only VITE_-prefixed vars are
-    // exposed, deliberately, so DB_PASSWORD cannot reach the bundle.
     "types": ["vite/client"]
   },
-  // src only. The ceiling accepted: vite.config.ts is no longer typechecked —
-  // 18 lines that Vite validates at startup anyway. If that file grows, split
-  // into tsconfig.app.json + tsconfig.node.json, which is what the stock Vite
-  // template does and why it does it.
+
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

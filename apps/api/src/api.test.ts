@@ -96,7 +96,7 @@ after(async () => {
       .pluck("id");
 
     if (userIds.length > 0) {
-      // Events before users: creator_id is ON DELETE RESTRICT (D005).
+      // Events before users: creator_id is ON DELETE RESTRICT.
       // event_tags follows via CASCADE; the tags row does not.
       await db("events").whereIn("creator_id", userIds).del();
     }

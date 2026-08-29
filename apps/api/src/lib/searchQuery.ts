@@ -23,10 +23,6 @@ export function planSearch(input: string): SearchPlan {
   const tooShort = tokens.filter((t) => t.length < MIN_FULLTEXT_TOKEN);
 
   return {
-    // `+` makes each term required, so adding a word narrows — this box sits in
-    // the filter form and must behave like a filter. `*` is mandatory for
-    // prefix matching: FULLTEXT indexes whole tokens, so "Ven" matches 0 while
-    // "Ven*" matches 415.
     fulltext: indexable.map((token) => `+${token}*`).join(" "),
     like: tooShort,
   };
@@ -34,11 +30,6 @@ export function planSearch(input: string): SearchPlan {
 
 export const LIKE_ESCAPE = "!";
 
-/**
- * Escapes the LIKE wildcards so a literal `%` or `_` in a search term is
- * matched as itself rather than as a wildcard. The escape character is
- * replaced first, or it would double-escape the escapes added after it.
- */
 export function likePattern(term: string): string {
   return `%${term.replace(/[!%_]/g, (char) => `${LIKE_ESCAPE}${char}`)}%`;
 }

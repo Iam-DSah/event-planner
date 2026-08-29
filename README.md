@@ -129,6 +129,10 @@ first.
 
 ## Engineering decisions
 
+The summaries below give the reasoning in short form. `ENGINEERING_DECISIONS.md`
+is the full document: every decision with its alternatives, the measurements
+behind it, and the trade-off accepted.
+
 ### 1. A monorepo with a shared validation package
 
 The brief requires validation on both sides. Two independent projects means
@@ -185,7 +189,25 @@ refresh tokens are implemented: opaque `randomBytes(32)`, SHA-256 hashed at
 rest, rotated on every use, grouped into families so replaying a spent token
 revokes the whole family. Their cookie is scoped to `Path=/api/v1/auth`.
 
-### 5. Login answers identically for an unknown email and a wrong password
+### 5. Registration: a clear 409, and NIST password rules
+
+A duplicate email returns `409 EMAIL_ALREADY_REGISTERED` and says so — an
+enumeration oracle, accepted deliberately: the brief requires clear errors, and
+concealing it properly means accepting the registration and emailing "you
+already have an account", which needs mail infrastructure this scope excludes.
+Where enumeration matters more, the answer is email verification and rate limits.
+
+Duplicates are caught by the `UNIQUE` index, not a `SELECT` first — two
+statements leave a window where concurrent registrations both pass the check.
+Four at once returned one `201` and three `409`. The driver's error is translated
+at the insert: its message carries the statement, the address and the index name.
+
+Passwords are 8–128 characters, no composition rules (NIST SP 800-63B): required
+symbols push people to `Password1!` while length is what helps, and the maximum
+bounds hashing cost — argon2id does not truncate. Measured 7 → `400`, 8 → `201`,
+128 → `201`, 129 → `400`, all-lowercase accepted.
+
+### 6. Login answers identically for an unknown email and a wrong password
 
 Same status, same message. That alone is insufficient: "no such user" returns
 immediately while "wrong password" pays for a hash verification, and the gap is
@@ -205,7 +227,7 @@ Relatedly, the login schema validates shape, not policy — a non-empty password
 not an 8-character one. Rejecting a short guess with `400` where a real attempt
 gets `401` replaces a timing oracle with a status-code one.
 
-### 6. Authorization reads the row, decides, then writes — in one transaction
+### 7. Authorization reads the row, decides, then writes — in one transaction
 
 The ownership rule lives in a service, not as an extra `AND creator_id = ?` on
 the `UPDATE`. A `WHERE` that matches nothing cannot distinguish "not yours"
@@ -220,7 +242,7 @@ oracle. `403` is used only for mutating a *public* event you do not own, where
 existence is no secret. `pagination.total` excludes private rows for the same
 reason.
 
-### 7. Domain errors become HTTP status codes at exactly one edge
+### 8. Domain errors become HTTP status codes at exactly one edge
 
 Services throw typed domain errors carrying a code and a client-safe message; a
 single handler owns the only mapping to status codes. Nothing below the
@@ -228,11 +250,11 @@ controller knows HTTP exists, which is what makes the authorization rule
 testable as a plain function.
 
 Unexpected errors return a generic 500 with the stack going only to the log,
-and library errors are never mapped directly: the driver's duplicate-key
-message contains the offending SQL and the submitted email address, so a
-duplicate registration is translated where the query runs.
+and library errors are never mapped directly — the duplicate-key case in
+decision 5 is why: that branch forwards the error's own message to the client,
+which is safe only because everything reaching it is an error we wrote.
 
-### 8. Indexes where a requirement justifies them; the rest settled with EXPLAIN
+### 9. Indexes where a requirement justifies them; the rest settled with EXPLAIN
 
 Every index costs write throughput, so each traces to a query the brief asks
 for. The listing query filters a grouped `OR` — public events plus your own —
@@ -255,7 +277,7 @@ the standing price of showing "page 3 of 47" rather than an infinite scroll, and
 it is why the count and the rows are built by one shared `WHERE` builder — two
 builders would let the number drift from the list with nothing erroring.
 
-### 9. FULLTEXT search, with a per-token LIKE fallback
+### 10. FULLTEXT search, with a per-token LIKE fallback
 
 `?q=` searches title, description and location through a `FULLTEXT` index in
 BOOLEAN mode, every term required, ordered by relevance. On 200,037 rows, for a
@@ -278,7 +300,7 @@ query still narrows through the index on the words it can:
 | `MATCH … AGAINST('+AI*')` alone | 0 |
 | `MATCH … AGAINST('+Conference*')` (control) | 1 |
 
-### 10. Frontend session and list state
+### 11. Frontend session and list state
 
 Auth state has three values, not two. With only "user" or "null", `null` means
 both "still checking" and "signed out", so a signed-in user is bounced to the

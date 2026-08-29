@@ -160,7 +160,7 @@ export default function EventDetailPage() {
             Starts
           </dt>
           {/* Rendered in the EVENT's timezone, not the viewer's. starts_at is a
-            UTC instant and `timezone` is the venue's zone (D004); toLocaleString
+            UTC instant and `timezone` is the venue's zone; toLocaleString
             would answer "when is this for me?", which is not the question. */}
           <dd className="text-pretty text-ink">
             <EventTime iso={event.startsAt} timeZone={event.timezone} />
@@ -199,7 +199,7 @@ export default function EventDetailPage() {
             </dt>
             <dd>
               {/* Each tag links to the list filtered by it — the filter is in
-                the URL now (D024), so this is just a link, with no state to
+                the URL now, so this is just a link, with no state to
                 hand over. */}
               <ul className="flex flex-wrap gap-1.5">
                 {event.tags.map((tag) => (

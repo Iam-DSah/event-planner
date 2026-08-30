@@ -21,6 +21,128 @@ Versions are those installed in `node_modules`, not the ranges declared in
 
 No ORM; all SQL goes through Knex's query builder.
 
+## Project structure
+
+An npm workspaces monorepo with three packages. `packages/shared` exists so the
+brief's requirement for validation on both frontend and backend is met by one
+definition rather than two that can drift; it resolves to TypeScript source
+through `"exports"`, with no build step.
+
+The API is layered **routes → controller → service → repository**. Controllers
+deal only in HTTP, every "may this person do this?" decision lives in a service
+so it is testable without a request, and all SQL is confined to a repository.
+
+```
+.
+├── apps/
+│   ├── api/                     # Express 5 + TypeScript + Knex
+│   │   ├── src/
+│   │   │   ├── controllers/     # HTTP shape; no business rules
+│   │   │   │   ├── authController.ts
+│   │   │   │   └── eventController.ts
+│   │   │   ├── db/
+│   │   │   │   ├── migrations/  # Knex, timestamp-prefixed
+│   │   │   │   │   ├── 20260820045850_initial_schema.ts
+│   │   │   │   │   ├── 20260825022407_add_event_listing_indexes.ts
+│   │   │   │   │   ├── 20260825095413_create_refresh_tokens.ts
+│   │   │   │   │   └── 20260826144052_add_events_fulltext_search.ts
+│   │   │   │   ├── knex.ts
+│   │   │   │   └── knexfile.ts
+│   │   │   ├── errors/          # code + client-safe message
+│   │   │   │   └── domainErrors.ts
+│   │   │   ├── lib/
+│   │   │   │   ├── env.ts
+│   │   │   │   ├── jwt.ts
+│   │   │   │   ├── password.ts
+│   │   │   │   ├── refreshToken.ts
+│   │   │   │   ├── searchQuery.ts
+│   │   │   │   └── tokenTtl.ts
+│   │   │   ├── middleware/      # order is load-bearing
+│   │   │   │   ├── auth.ts
+│   │   │   │   ├── cors.ts
+│   │   │   │   ├── errorHandler.ts
+│   │   │   │   └── notFoundHandler.ts
+│   │   │   ├── repositories/    # all SQL lives here
+│   │   │   │   ├── eventRepository.ts
+│   │   │   │   ├── refreshTokenRepository.ts
+│   │   │   │   ├── tagRepository.ts
+│   │   │   │   └── userRepository.ts
+│   │   │   ├── routes/          # paths and verbs only
+│   │   │   │   ├── auth.ts
+│   │   │   │   └── events.ts
+│   │   │   ├── services/        # authorization and rules; no HTTP
+│   │   │   │   ├── authService.ts
+│   │   │   │   └── eventService.ts
+│   │   │   ├── types/
+│   │   │   │   └── express.d.ts
+│   │   │   ├── validation/
+│   │   │   │   └── params.ts
+│   │   │   ├── api.test.ts      # node:test suite
+│   │   │   ├── app.ts           # middleware order, routes, health
+│   │   │   └── server.ts        # listen() only
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   └── web/                     # React 19 + Vite 7 + Router 7
+│       ├── src/
+│       │   ├── api/             # envelope, single-flight refresh
+│       │   │   └── client.ts
+│       │   ├── auth/            # three-state session provider
+│       │   │   └── AuthContext.tsx
+│       │   ├── components/      # guards and reusable UI
+│       │   │   ├── EventForm.tsx
+│       │   │   ├── EventTime.tsx
+│       │   │   ├── Icon.tsx
+│       │   │   ├── Loading.tsx
+│       │   │   ├── ProtectedRoute.tsx
+│       │   │   └── PublicOnlyRoute.tsx
+│       │   ├── lib/
+│       │   │   └── datetime.ts
+│       │   ├── pages/           # one per route
+│       │   │   ├── EventCreatePage.tsx
+│       │   │   ├── EventDetailPage.tsx
+│       │   │   ├── EventEditPage.tsx
+│       │   │   ├── EventsPage.tsx
+│       │   │   ├── LoginPage.tsx
+│       │   │   └── RegisterPage.tsx
+│       │   ├── App.tsx
+│       │   ├── main.tsx
+│       │   └── styles.css
+│       ├── index.html
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── vite.config.ts
+├── BONUS-SECTION/               # assessment bonus questions
+│   ├── 01-schema-and-data.sql
+│   ├── 02-answers.sql
+│   ├── BONUS-SECTION.pdf
+│   └── README.md
+├── docs/                        # engineering writeup, UML diagrams
+│   ├── uml/
+│   │   ├── backend-uml.png
+│   │   ├── domain-uml.png
+│   │   ├── error-uml.png
+│   │   └── frontend-uml.png
+│   └── ENGINEERING_DECISIONS.md
+├── packages/
+│   └── shared/                  # Zod schemas, imported by BOTH sides
+│       ├── src/
+│       │   └── index.ts         # every rule, defined once
+│       ├── package.json
+│       └── tsconfig.json
+├── .env.example
+├── .gitignore
+├── .prettierignore
+├── docker-compose.yml
+├── package-lock.json
+├── package.json
+├── prettier.config.js
+├── README.md
+└── tsconfig.base.json
+```
+
+Only tracked files are shown. `node_modules/`, build output and `.env` are
+ignored; see `.gitignore`.
+
 ## Setup
 
 Requires Node ≥ 20, Docker running, and ports 3000, 5173 and 3306 free.

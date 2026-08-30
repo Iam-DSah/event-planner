@@ -373,3 +373,21 @@ Account deletion is also absent. It is not a missing CRUD endpoint:
 deciding what happens to their events — cascade, reassign to a tombstone
 account, or soft-delete the user. Each affects other users' data, and none is a
 default.
+
+## Bonus section
+
+The assessment's bonus SQL questions (Q1, Q2 and Q4; the paper contains no Q3)
+are answered in **[`BONUS-SECTION/README.md`](BONUS-SECTION/README.md)**, with
+the queries as runnable files alongside it. Every result set in that document is
+captured output from MySQL 8.4.11.
+
+```bash
+docker exec -i -e MYSQL_PWD=rootpassword eventplanner-mysql \
+  mysql -uroot < BONUS-SECTION/01-schema-and-data.sql
+
+docker exec -i -e MYSQL_PWD=rootpassword eventplanner-mysql \
+  mysql -uroot --table < BONUS-SECTION/02-answers.sql
+```
+
+The bonus schema is created in its own `bonus_hr` database and does not read or
+modify any application table.
